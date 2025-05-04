@@ -1,6 +1,7 @@
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "process";
+export const runtime = 'edge';
 
 function getFormattedSize(sizeBytes: number) {
   let size, unit;
