@@ -142,7 +142,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     response.headers.set("Cache-Control", "no-store, must-revalidate");
     return response;
   } catch (error) {
-    // console.error(error);
+    console.log(error);
     return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
   }
 }
