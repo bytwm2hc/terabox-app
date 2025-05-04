@@ -124,16 +124,24 @@ export async function GET(req: NextRequest, res: NextResponse) {
       }
     );
     const direct_link = directLinkResponse.request.res.responseUrl;
+    let thumb = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    if (responseData2["list"][0]["thumbs"]) {
+        thumb = responseData2["list"][0]["thumbs"]["url3"];
+    }
     const data: ResponseData = {
       file_name: responseData2["list"][0]["server_filename"],
       link: responseData2["list"][0]["dlink"],
       direct_link: direct_link,
-      thumb: responseData2["list"][0]["thumbs"]["url3"],
+      thumb: thumb,
       size: getFormattedSize(parseInt(responseData2["list"][0]["size"])),
       sizebytes: parseInt(responseData2["list"][0]["size"]),
     };
-    return NextResponse.json(data, { status: 200 });
+    const response = NextResponse.json(data, { status: 200 });
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Cache-Control", "no-store, must-revalidate");
+    return response;
   } catch (error) {
+    // console.error(error);
     return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
   }
 }
