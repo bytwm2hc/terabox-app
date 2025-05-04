@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "preview": "npm run pages:build && wrangler pages dev",
+    "deploy": "npm run pages:build && wrangler pages deploy"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "1.0.0-beta.4",
     "@radix-ui/react-slot": "^1.0.2",
     "@types/node": "20.4.8",
     "@types/react": "18.2.19",
@@ -39,8 +41,5 @@
   "devDependencies": {
     "@types/crypto-js": "^4.1.1",
     "@types/uuid": "^9.0.2"
-  },
-  "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-  "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-  "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+  }
 }
