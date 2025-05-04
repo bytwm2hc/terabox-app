@@ -38,5 +38,8 @@
   "devDependencies": {
     "@types/crypto-js": "^4.1.1",
     "@types/uuid": "^9.0.2"
-  }
+  },
+  "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+  "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+  "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
 }
