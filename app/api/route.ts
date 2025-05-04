@@ -1,7 +1,6 @@
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "process";
-export const runtime = 'edge';
 
 function getFormattedSize(sizeBytes: number) {
   let size, unit;
@@ -76,6 +75,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
 
     if (!tempReq)
       return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
+    console.error(tempReq.request.res);
     const { searchParams: requestUrl, href } = new URL(
       tempReq.request.res.responseUrl
     );
@@ -124,6 +124,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
         withCredentials: false,
       }
     );
+
     const direct_link = directLinkResponse.request.res.responseUrl;
     let thumb = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
     if (responseData2["list"][0]["thumbs"]) {
@@ -142,7 +143,6 @@ export async function GET(req: NextRequest, res: NextResponse) {
     response.headers.set("Cache-Control", "no-store, must-revalidate");
     return response;
   } catch (error) {
-    console.log(error);
     return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
   }
 }
