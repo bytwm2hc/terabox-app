@@ -64,3 +64,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/deploym
 ## Modification @bytwm2hc
 
 I changed the api response to use a transparent image when can't get thumbnail from TeraBox for some files. And I also added CORS HTTP header to api response to make it more useful.
+Added a function to proxy download by adding "?download" query string.
