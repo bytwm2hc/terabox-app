@@ -91,9 +91,23 @@ export async function GET(req: NextRequest, res: NextResponse) {
       size: getFormattedSize(parseInt(json2["list"][0]["size"])),
       sizebytes: parseInt(json2["list"][0]["size"]),
     };
-    const response = NextResponse.json(data, { status: 200 });
+    let response = NextResponse.json(data, { status: 200 });
+    if (searchParams.has("download")) {
+        try {
+          let response4 = await fetch(direct_link);
+          console.error("ok");
+          if (!response4.ok)
+            return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
+          response = new Response(await response4.blob(), { headers: new Headers(response4.headers) });
+          response.headers.set("Access-Control-Allow-Origin", "*");
+          return response;
+        } catch (error) {
+          return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
+        }
+    }
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Cache-Control", "no-store, must-revalidate");
+    console.error(response);
     return response;
   } catch (error) {
     return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
