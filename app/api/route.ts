@@ -40,104 +40,56 @@ function findBetween(str: string, start: string, end: string) {
 }
 
 export async function GET(req: NextRequest, res: NextResponse) {
-  const { searchParams: params } = new URL(req.url);
-  if (!params.has("data")) {
+  const { searchParams } = new URL(req.url);
+  if (!searchParams.has("data")) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const link = params.get("data");
+  const link = searchParams.get("data");
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const axiosInstance = axios.create({
-    headers: {
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-      Connection: "keep-alive",
-      DNT: "1",
-      Host: "www.terabox.app",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
-      "Upgrade-Insecure-Requests": "1",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "sec-ch-ua":
-        '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-      Cookie: env.COOKIE,
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-    },
+  const headers = new Headers({
+    "Cookie": env.COOKIE,
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
   });
   try {
-    const tempReq = await axiosInstance.get(link);
+    const response1 = await fetch(link, { method: "GET", headers: headers } );
+    if (!response1)
+      return NextResponse.json({ error: "Parsing Link Error" }, { status: 400 });
+    const { searchParams: searchParams1, href } = new URL(response1.url);
+    if (!searchParams1.has("surl")) {
+      return NextResponse.json({ error: "Missing surl" }, { status: 400 });
+    }
+    const surl = searchParams1.get("surl");
+    const text1 = await response1.text();
+    const jsToken = findBetween(text1, "fn%28%22", "%22%29");
+    const bdstoken = findBetween(text1, 'bdstoken":"', '"');
+    if (!jsToken || !bdstoken) {
+      return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
+    }
+    
+    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
+    searchParams2 = searchParams2.concat(jsToken, "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href), "&shorturl=", surl, "&root=1");
+    const response2 = await fetch("https://www.terabox.app/share/list" + searchParams2, { method: "GET", headers: headers });
+    const json2 = await response2.json();
+    if (!json2 || !("list" in json2)) {
+      return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
+    }
 
-    if (!tempReq)
-      return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
-    console.error(tempReq.request.res);
-    const { searchParams: requestUrl, href } = new URL(
-      tempReq.request.res.responseUrl
-    );
-    if (!requestUrl.has("surl")) {
-      return NextResponse.json({ error: "Missing data" }, { status: 400 });
-    }
-    const req = await axiosInstance.get(tempReq.request.res.responseUrl);
-    const respo = await req.data;
-    const jsToken = findBetween(respo, "fn%28%22", "%22%29");
-    const logid = findBetween(respo, "dp-logid=", "&");
-    const bdstoken = findBetween(respo, 'bdstoken":"', '"');
-    if (!jsToken || !logid || !bdstoken) {
-      return NextResponse.json({ error: "Invalid response" }, { status: 400 });
-    }
-    const surl = requestUrl.get("surl");
-    const params = {
-      app_id: "250528",
-      web: "1",
-      channel: "dubox",
-      clienttype: "0",
-      jsToken: jsToken,
-      "dp-logid": logid,
-      page: "1",
-      num: "20",
-      by: "name",
-      order: "asc",
-      site_referer: href,
-      shorturl: surl,
-      root: "1,",
-    };
-    const req2 = await axiosInstance.get("https://www.terabox.app/share/list", {
-      params: params,
-    });
-    const responseData2 = req2.data;
-    if (
-      !responseData2 ||
-      !("list" in responseData2) ||
-      !responseData2["list"] ||
-      responseData2["errno"]
-    ) {
-      return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
-    }
-    const directLinkResponse = await axiosInstance.head(
-      responseData2["list"][0]["dlink"],
-      {
-        withCredentials: false,
-      }
-    );
-
-    const direct_link = directLinkResponse.request.res.responseUrl;
+    const response3 = await fetch(json2["list"][0]["dlink"], { method: "HEAD", headers: headers });
+    const direct_link = response3.url;
+    
     let thumb = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-    if (responseData2["list"][0]["thumbs"]) {
-        thumb = responseData2["list"][0]["thumbs"]["url3"];
+    if (json2["list"][0]["thumbs"]) {
+        thumb = json2["list"][0]["thumbs"]["url3"];
     }
     const data: ResponseData = {
-      file_name: responseData2["list"][0]["server_filename"],
-      link: responseData2["list"][0]["dlink"],
+      file_name: json2["list"][0]["server_filename"],
+      link: json2["list"][0]["dlink"],
       direct_link: direct_link,
       thumb: thumb,
-      size: getFormattedSize(parseInt(responseData2["list"][0]["size"])),
-      sizebytes: parseInt(responseData2["list"][0]["size"]),
+      size: getFormattedSize(parseInt(json2["list"][0]["size"])),
+      sizebytes: parseInt(json2["list"][0]["size"]),
     };
     const response = NextResponse.json(data, { status: 200 });
     response.headers.set("Access-Control-Allow-Origin", "*");
