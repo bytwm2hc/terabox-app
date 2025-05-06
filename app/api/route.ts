@@ -56,10 +56,12 @@ export async function GET(req: NextRequest, res: NextResponse) {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
       return NextResponse.json({ error: "Parsing Link Error" }, { status: 400 });
-    const { searchParams: searchParams1, href } = new URL(response1.url);
+    let { searchParams: searchParams1, href } = new URL(response1.url);
     if (!searchParams1.has("surl")) {
       return NextResponse.json({ error: "Missing surl" }, { status: 400 });
     }
+    if (href === null)
+      href = "";
     const surl = searchParams1.get("surl");
     const text1 = await response1.text();
     const jsToken = findBetween(text1, "fn%28%22", "%22%29");
