@@ -56,7 +56,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
       return NextResponse.json({ error: "Parsing Link Error" }, { status: 400 });
-    let { searchParams: searchParams1, href = "" } = new URL(response1.url);
+    let { searchParams: searchParams1, href } = new URL(response1.url);
     if (!searchParams1.has("surl")) {
       return NextResponse.json({ error: "Missing surl" }, { status: 400 });
     }
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     
     let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
-    searchParams2 = searchParams2.concat(jsToken, "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href), "&shorturl=", surl, "&root=1");
+    searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch("https://www.terabox.app/share/list" + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
