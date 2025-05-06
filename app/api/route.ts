@@ -49,9 +49,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
   const headers = new Headers({
-    "Cookie": env.COOKIE,
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
   });
+  env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
