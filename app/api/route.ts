@@ -76,8 +76,8 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
     }
 
-    const response3 = await fetch(json2["list"][0]["dlink"], { method: "HEAD", headers: headers });
-    const direct_link = response3.url;
+    const response3 = await fetch(json2["list"][0]["dlink"], { method: "GET", headers: headers });
+    const direct_link = json2["list"][0]["dlink"];
     
     let thumb = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
     if (json2["list"][0]["thumbs"]) {
@@ -94,13 +94,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     let response = NextResponse.json(data, { status: 200 });
     if (searchParams.has("download")) {
         try {
-          return await fetch(direct_link).then(function (r) {
-            return r.body;
-          });
-          let response4 = await fetch(direct_link);
-          if (!response4.ok)
-            return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          response = new NextResponse(await response4.blob(), { headers: new Headers(response4.headers) });
+          response = new NextResponse(await response3.blob(), { headers: new Headers(response3.headers) });
           response.headers.set("Access-Control-Allow-Origin", "*");
           return response;
         } catch (error) {
