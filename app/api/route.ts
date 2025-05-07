@@ -94,6 +94,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     let response = NextResponse.json(data, { status: 200 });
     if (searchParams.has("download")) {
         try {
+          return new NextResponse(await fetch(direct_link));
           let response4 = await fetch(direct_link);
           if (!response4.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
