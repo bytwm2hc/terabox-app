@@ -91,13 +91,16 @@ export async function GET(req: NextRequest, res: NextResponse) {
       size: getFormattedSize(parseInt(json2["list"][0]["size"])),
       sizebytes: parseInt(json2["list"][0]["size"]),
     };
-    let response = NextResponse.json(data, { status: 200 });
+    
     if (searchParams.has("download")) {
+        return NextResponse.redirect(direct_link, 302);
+    }
+    if (searchParams.has("proxy")) {
         try {
           let response4 = await fetch(direct_link);
           if (!response4.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          response = new NextResponse(await response4.body);
+          response = new NextResponse(response4.body);
           response.headers.set("Access-Control-Allow-Origin", "*");
           response4.headers.get("Content-Length") && response.headers.set("Content-Length", response4.headers.get("Content-Length")!);
           response4.headers.get("Content-Type") && response.headers.set("Content-Type", response4.headers.get("Content-Type")!);
@@ -106,6 +109,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
           return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
         }
     }
+    let response = NextResponse.json(data, { status: 200 });
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Cache-Control", "no-store, must-revalidate");
     return response;
