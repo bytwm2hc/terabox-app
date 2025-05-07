@@ -95,7 +95,6 @@ export async function GET(req: NextRequest, res: NextResponse) {
     if (searchParams.has("download")) {
         try {
           let response4 = await fetch(direct_link);
-          console.error("ok");
           if (!response4.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
           response = new NextResponse(await response4.blob(), { headers: new Headers(response4.headers) });
@@ -107,7 +106,6 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Cache-Control", "no-store, must-revalidate");
-    console.error(response);
     return response;
   } catch (error) {
     return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
