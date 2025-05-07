@@ -98,6 +98,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
           if (!response4.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
           response = new NextResponse(await response4.body, { headers: new Headers(response4.headers) });
+          response.headers.delete("Accept-Ranges");
           response.headers.set("Access-Control-Allow-Origin", "*");
           return response;
         } catch (error) {
