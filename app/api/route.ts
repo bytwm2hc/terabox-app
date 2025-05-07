@@ -97,14 +97,12 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     if (searchParams.has("proxy")) {
         try {
-          let response4 = await fetch(direct_link);
-          if (!response4.ok)
+          let response1 = await fetch(direct_link);
+          if (!response1.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          response = new NextResponse(response4.body);
-          response.headers.set("Access-Control-Allow-Origin", "*");
-          response4.headers.get("Content-Length") && response.headers.set("Content-Length", response4.headers.get("Content-Length")!);
-          response4.headers.get("Content-Type") && response.headers.set("Content-Type", response4.headers.get("Content-Type")!);
-          return response;
+          let response2 = new NextResponse(response1.body, { headers: response1.headers });
+          response2.headers.set("Access-Control-Allow-Origin", "*");
+          return response2;
         } catch (error) {
           return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
         }
