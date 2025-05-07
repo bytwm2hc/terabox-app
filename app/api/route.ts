@@ -2,7 +2,6 @@ export const runtime = "edge";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "process";
-const CORS_ANYWHERE = '//cors.cdn7500.workers.dev/?';
 
 function getFormattedSize(sizeBytes: number) {
   let size, unit;
@@ -95,15 +94,10 @@ export async function GET(req: NextRequest, res: NextResponse) {
     let response = NextResponse.json(data, { status: 200 });
     if (searchParams.has("download")) {
         try {
-          // Not sure why Cloudflare can't fetch file directly when the size is over 50MB
-          if (parseInt(json2["list"][0]["size"]) > 50 * 1024 * 1024) {
-            // Redirect to use cors-anywhere
-            return NextResponse.redirect(CORS_ANYWHERE + direct_link, 302);
-          }
           let response4 = await fetch(direct_link);
           if (!response4.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          response = new NextResponse(await response4.blob(), { headers: new Headers(response4.headers) });
+          response = new NextResponse(await response4.body, { headers: new Headers(response4.headers) });
           response.headers.set("Access-Control-Allow-Origin", "*");
           return response;
         } catch (error) {
