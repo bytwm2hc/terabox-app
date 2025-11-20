@@ -67,9 +67,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
     }
     
-    let searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
+    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
-    const response2 = await fetch("http://www.nephobox.com/share/list" + searchParams2, { method: "GET", headers: headers });
+    const response2 = await fetch("http://www.terabox.com/share/list" + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
       return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
