@@ -51,6 +51,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
   const userAgent = env["USER-AGENT"] || "netdisk;P2SP;1.0.0.10";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
+  headers.set("Referer", "https://www.terabox.com/");
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
