@@ -48,9 +48,8 @@ export async function GET(req: NextRequest, res: NextResponse) {
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const headers = new Headers({
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-  });
+  const userAgent = env["USER-AGENT"] || "netdisk;P2SP;1.0.0.10";
+  const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
@@ -68,9 +67,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
     }
     
-    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
+    let searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
-    const response2 = await fetch("https://www.terabox.app/share/list" + searchParams2, { method: "GET", headers: headers });
+    const response2 = await fetch("http://www.nephobox.com/share/list" + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
       return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
@@ -100,9 +99,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
           let response1 = await fetch(direct_link);
           if (!response1.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          let response2 = new NextResponse(response1.body, { headers: response1.headers });
-          response2.headers.set("Access-Control-Allow-Origin", "*");
-          return response2;
+          const proxyHeaders = new Headers(response1.headers);
+          proxyHeaders.set("Access-Control-Allow-Origin", "*");
+          return new NextResponse(response1.body, { headers: proxyHeaders });
         } catch (error) {
           return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
         }
