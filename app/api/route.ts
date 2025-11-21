@@ -48,7 +48,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const userAgent = env["USER-AGENT"] || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
+  const userAgent = searchParams.get("userAgent") ||
+      env["USER-AGENT"] ||
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
   headers.set("Host", "www.terabox.com");
