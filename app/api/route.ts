@@ -48,7 +48,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const clientType = searchParams.get("clientType") || "0";
+  const clientType = searchParams.get("clientType") || env.CLIENTTYPE || "0";
   const userAgent = env["USER-AGENT"] || "netdisk;P2SP;1.0.0.10";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
