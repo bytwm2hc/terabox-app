@@ -48,10 +48,11 @@ export async function GET(req: NextRequest, res: NextResponse) {
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
+  const clientType = searchParams.get("clientType") || "0";
   const userAgent = env["USER-AGENT"] || "netdisk;P2SP;1.0.0.10";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
-  headers.set("Referer", "https://terabox.com/");  
+  headers.set("Referer", "http://terabox.com/");  
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
@@ -68,7 +69,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
     }
     
-    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
+    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype="
+    searchParams2 = searchParams2.concat(clientType);
+    searchParams2 = searchParams2.concat("&jsToken=");
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch("http://terabox.com/share/list" + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
