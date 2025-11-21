@@ -70,14 +70,16 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     
     let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
+    let response2Url = "https://www.terabox.com/share/list";
     if (searchParams.has("nephobox")) {
         headers.set("User-Agent", "netdisk;P2SP;1.0.0.10");
         headers.set("Host", "nephobox.com");
         headers.set("Referer", "http://nephobox.com/");
         searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
+        response2Url = "http://nephobox.com/share/list";
     }
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
-    const response2 = await fetch("https://www.terabox.com/share/list" + searchParams2, { method: "GET", headers: headers });
+    const response2 = await fetch(response2Url + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
       return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
