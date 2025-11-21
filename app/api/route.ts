@@ -69,7 +69,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
     }
     
-    let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype="
+    let searchParams2 = "?app_id=250528&channel=dubox&clienttype="
     searchParams2 = searchParams2.concat(clientType);
     searchParams2 = searchParams2.concat("&jsToken=");
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
