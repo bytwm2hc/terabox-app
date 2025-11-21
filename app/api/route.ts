@@ -48,9 +48,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
   if (!link) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
-  const userAgent = searchParams.get("userAgent") ||
-      env["USER-AGENT"] ||
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
+  const userAgent = env["USER-AGENT"] || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
   headers.set("Host", "www.terabox.com");
@@ -72,6 +70,12 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     
     let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
+    if (searchParams.has("nephobox")) {
+        headers.set("User-Agent", "netdisk;P2SP;1.0.0.10");
+        headers.set("Host", "nephobox.com");
+        headers.set("Referer", "http://nephobox.com/");
+        searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
+    }
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch("https://www.terabox.com/share/list" + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
