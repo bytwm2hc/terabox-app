@@ -85,8 +85,24 @@ export async function GET(req: NextRequest, res: NextResponse) {
       return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
     }
 
-    const response3 = await fetch(json2["list"][0]["dlink"], { method: "HEAD", headers: headers });
-    const direct_link = response3.url;
+    if (searchParams.has("proxy")) {
+        try {
+          let response1 = await fetch(json2["list"][0]["dlink"], { headers: headers });
+          if (!response1.ok)
+            return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
+          const proxyHeaders = new Headers(response1.headers);
+          proxyHeaders.set("Access-Control-Allow-Methods", "*");
+          proxyHeaders.set("Access-Control-Allow-Origin", "*");
+          proxyHeaders.set("Access-Control-Expose-Headers", "*");
+          return new NextResponse(response1.body, { headers: proxyHeaders });
+        } catch (error) {
+          return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
+        }
+    }
+
+    const shouldFetch = !searchParams.has("nodirectlink");
+    const response3 = shouldFetch ? await fetch(json2.list[0].dlink, { method: "HEAD", headers }) : null;
+    const direct_link = response3?.url ?? null;
     
     let thumb = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
     if (json2["list"][0]["thumbs"]) {
@@ -102,21 +118,10 @@ export async function GET(req: NextRequest, res: NextResponse) {
     };
     
     if (searchParams.has("download")) {
-        return NextResponse.redirect(direct_link, 302);
-    }
-    if (searchParams.has("proxy")) {
-        try {
-          let response1 = await fetch(direct_link);
-          if (!response1.ok)
-            return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
-          const proxyHeaders = new Headers(response1.headers);
-          proxyHeaders.set("Access-Control-Allow-Methods", "*");
-          proxyHeaders.set("Access-Control-Allow-Origin", "*");
-          proxyHeaders.set("Access-Control-Expose-Headers", "*");
-          return new NextResponse(response1.body, { headers: proxyHeaders });
-        } catch (error) {
-          return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
+        if (direct_link === null) {
+            return NextResponse.json({ error: "No direct_link! Maybe you used with nodirectlink." }, { status: 400 });
         }
+        return NextResponse.redirect(direct_link, 302);
     }
     let response = NextResponse.json(data, { status: 200 });
     response.headers.set("Access-Control-Allow-Methods", "*");
