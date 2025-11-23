@@ -110,14 +110,18 @@ export async function GET(req: NextRequest, res: NextResponse) {
           if (!response1.ok)
             return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
           const proxyHeaders = new Headers(response1.headers);
+          proxyHeaders.set("Access-Control-Allow-Methods", "*");
           proxyHeaders.set("Access-Control-Allow-Origin", "*");
+          proxyHeaders.set("Access-Control-Expose-Headers", "*");
           return new NextResponse(response1.body, { headers: proxyHeaders });
         } catch (error) {
           return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
         }
     }
     let response = NextResponse.json(data, { status: 200 });
+    response.headers.set("Access-Control-Allow-Methods", "*");
     response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Expose-Headers", "*");
     response.headers.set("Cache-Control", "no-store, must-revalidate");
     return response;
   } catch (error) {
