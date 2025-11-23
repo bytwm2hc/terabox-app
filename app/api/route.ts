@@ -111,7 +111,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
     const data: ResponseData = {
       file_name: json2["list"][0]["server_filename"],
       link: json2["list"][0]["dlink"],
-      direct_link: direct_link as string | null,
+      direct_link: direct_link ?? "",
       thumb: thumb,
       size: getFormattedSize(parseInt(json2["list"][0]["size"])),
       sizebytes: parseInt(json2["list"][0]["size"]),
