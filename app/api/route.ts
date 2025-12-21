@@ -42,11 +42,21 @@ function findBetween(str: string, start: string, end: string) {
 export async function GET(req: NextRequest, res: NextResponse) {
   const { searchParams } = new URL(req.url);
   if (!searchParams.has("data")) {
-    return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    return NextResponse.json({ error: "Missing data" }, {
+        status: 400, headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json"
+        }
+    });
   }
   const link = searchParams.get("data");
   if (!link) {
-    return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    return NextResponse.json({ error: "Missing data" }, {
+        status: 400, headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json"
+        }
+    });
   }
   const userAgent = env["USER-AGENT"] || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
   const headers = new Headers({ "User-Agent": userAgent });
@@ -56,17 +66,33 @@ export async function GET(req: NextRequest, res: NextResponse) {
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
-      return NextResponse.json({ error: "Parsing Link Error" }, { status: 400 });
+      return NextResponse.json({ error: "Parsing Link Error" }, {
+        status: 400, headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json"
+        }
+      });
+
     let { searchParams: searchParams1, href } = new URL(response1.url);
     if (!searchParams1.has("surl")) {
-      return NextResponse.json({ error: "Missing surl" }, { status: 400 });
+      return NextResponse.json({ error: "Missing surl" }, {
+        status: 400, headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json"
+        }
+      });
     }
     const surl = searchParams1.get("surl");
     const text1 = await response1.text();
     const jsToken = findBetween(text1, "fn%28%22", "%22%29");
     const bdstoken = findBetween(text1, 'bdstoken":"', '"');
     if (!jsToken || !bdstoken) {
-      return NextResponse.json({ error: "Invalid Response" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid Response" }, {
+        status: 400, headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json"
+        }
+      });
     }
     
     let searchParams2 = "?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=";
@@ -82,21 +108,37 @@ export async function GET(req: NextRequest, res: NextResponse) {
     const response2 = await fetch(response2Url + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
-      return NextResponse.json({ error: "Parsing JSON Error" }, { status: 400 });
+      return NextResponse.json({ error: "Parsing JSON Error" }, {
+        status: 400, headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json"
+        }
+      });
     }
 
     if (searchParams.has("proxy")) {
         try {
           let response1 = await fetch(json2["list"][0]["dlink"], { headers: headers });
-          if (!response1.ok)
-            return NextResponse.json({ error: "Upstream Error" }, { status: 400 });
+          if (!response1.ok) {
+            return NextResponse.json({ error: "Upstream Error" }, {
+              status: 400, headers: {
+                "Cache-Control": "no-store",
+                "Content-Type": "application/json"
+              }
+            });
+          }
           const proxyHeaders = new Headers(response1.headers);
           proxyHeaders.set("Access-Control-Allow-Methods", "*");
           proxyHeaders.set("Access-Control-Allow-Origin", "*");
           proxyHeaders.set("Access-Control-Expose-Headers", "*");
           return new NextResponse(response1.body, { headers: proxyHeaders });
         } catch (error) {
-          return NextResponse.json({ error: "Failed to proxy download" }, { status: 400 });
+          return NextResponse.json({ error: "Failed to proxy download" }, {
+            status: 400, headers: {
+              "Cache-Control": "no-store",
+              "Content-Type": "application/json"
+            }
+          });
         }
     }
 
@@ -119,7 +161,12 @@ export async function GET(req: NextRequest, res: NextResponse) {
     
     if (searchParams.has("download")) {
         if (direct_link === null) {
-            return NextResponse.json({ error: "No direct_link! Maybe you used with nodirectlink." }, { status: 400 });
+            return NextResponse.json({ error: "No direct_link! Maybe you used with nodirectlink." }, {
+              status: 400, headers: {
+                "Cache-Control": "no-store",
+                "Content-Type": "application/json"
+              }
+            });
         }
         return NextResponse.redirect(direct_link, 302);
     }
@@ -130,6 +177,11 @@ export async function GET(req: NextRequest, res: NextResponse) {
     response.headers.set("Cache-Control", "no-store, must-revalidate");
     return response;
   } catch (error) {
-    return NextResponse.json({ error: "Unknown Error" }, { status: 400 });
+    return NextResponse.json({ error: "Unknown Error" }, {
+      status: 400, headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
