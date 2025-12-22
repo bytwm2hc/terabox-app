@@ -107,6 +107,12 @@ export async function GET(req: NextRequest, res: NextResponse) {
     // searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
     searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch(response2Url + searchParams2, { method: "GET", headers: headers });
+    if (!response2.ok) {
+      return new NextResponse(response2.body, {
+        status: response2.status,
+        headers: response2.headers
+      });
+    }
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
       return NextResponse.json({ error: "Parsing JSON Error" }, {
