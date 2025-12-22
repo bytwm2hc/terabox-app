@@ -104,7 +104,8 @@ export async function GET(req: NextRequest, res: NextResponse) {
         searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
         response2Url = "http://nephobox.com/share/list";
     }
-    searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
+    // searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
+    searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch(response2Url + searchParams2, { method: "GET", headers: headers });
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
