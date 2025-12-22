@@ -61,8 +61,11 @@ export async function GET(req: NextRequest, res: NextResponse) {
   const userAgent = env["USER-AGENT"] || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
+  headers.set("Cache-Control", "no-cache");
+  headers.set("Content-Type", "application/x-www-form-urlencoded");
   headers.set("Host", "www.terabox.com");
-  headers.set("Referer", "https://www.terabox.com/");
+  headers.set("Referer", "https://www.terabox.com/chinese/sharing/link");
+  headers.set("X-Requested-With", "XMLHttpRequest");
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
