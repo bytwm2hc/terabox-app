@@ -61,11 +61,8 @@ export async function GET(req: NextRequest, res: NextResponse) {
   const userAgent = env["USER-AGENT"] || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15";
   const headers = new Headers({ "User-Agent": userAgent });
   env.COOKIE ? (headers.set("Cookie", env.COOKIE)) : false;
-  headers.set("Cache-Control", "no-cache");
-  headers.set("Content-Type", "application/x-www-form-urlencoded");
   headers.set("Host", "www.terabox.com");
-  headers.set("Referer", "https://www.terabox.com/chinese/sharing/link");
-  headers.set("X-Requested-With", "XMLHttpRequest");
+  headers.set("Referer", "https://www.terabox.com/");
   try {
     const response1 = await fetch(link, { method: "GET", headers: headers } );
     if (!response1)
@@ -107,20 +104,15 @@ export async function GET(req: NextRequest, res: NextResponse) {
         searchParams2 = "?app_id=250528&clienttype=9&jsToken=";
         response2Url = "http://nephobox.com/share/list";
     }
-    // searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
-    searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=&shorturl=", surl ?? "", "&root=1");
+    searchParams2 = searchParams2.concat(jsToken ?? "", "&page=1&num=20&by=name&order=asc&site_referer=", encodeURIComponent(href ?? ""), "&shorturl=", surl ?? "", "&root=1");
     const response2 = await fetch(response2Url + searchParams2, { method: "GET", headers: headers });
-    if (!response2.ok) {
-      return new NextResponse(response2.body, {
-        status: response2.status,
-        headers: response2.headers
-      });
-    }
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
-      return new NextResponse(response2.body, {
-        status: response2.status,
-        headers: response2.headers
+      return NextResponse.json({ error: "Parsing JSON Error" }, {
+        status: 400, headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json"
+        }
       });
     }
 
