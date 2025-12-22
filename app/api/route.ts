@@ -115,11 +115,9 @@ export async function GET(req: NextRequest, res: NextResponse) {
     }
     const json2 = await response2.json();
     if (!json2 || !("list" in json2)) {
-      return NextResponse.json({ error: "Parsing JSON Error" }, {
-        status: 400, headers: {
-          "Cache-Control": "no-store",
-          "Content-Type": "application/json"
-        }
+      return new NextResponse(response2.body, {
+        status: response2.status,
+        headers: response2.headers
       });
     }
 
