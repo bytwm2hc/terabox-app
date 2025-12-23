@@ -1,12 +1,22 @@
-/// <reference types="@cloudflare/workers-types" />
-declare global {
-  const COOKIE_KV: KVNamespace;
-}
-
 export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 
+// KV 介面
+interface Env {
+  COOKIE_KV: KVNamespace;
+}
+
+// 型別安全 interface
+interface ListResponse {
+  list: Array<{
+    dlink: string;
+    server_filename: string;
+    size: string;
+    thumbs?: { url3: string };
+  }>;
+}
+
+// 工具函式
 function getFormattedSize(bytes: number) {
   if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
   if (bytes >= 1024) return (bytes / 1024).toFixed(2) + " KB";
@@ -39,11 +49,7 @@ async function fetchFollowWithCookies(
   let cookieStore = headers.get("Cookie") ?? "";
 
   for (let i = 0; i < maxRedirects; i++) {
-    const res = await fetch(current, {
-      headers,
-      redirect: "manual",
-    });
-
+    const res = await fetch(current, { headers, redirect: "manual" });
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
       cookieStore += (cookieStore ? "; " : "") + setCookie;
@@ -94,17 +100,7 @@ async function proxyDownload(
   });
 }
 
-// 型別安全 interface
-interface ListResponse {
-  list: Array<{
-    dlink: string;
-    server_filename: string;
-    size: string;
-    thumbs?: { url3: string };
-  }>;
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, env: Env) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
@@ -117,7 +113,8 @@ export async function GET(req: NextRequest) {
       Referer: "https://1024terabox.com/",
     });
 
-    const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
+    // ✅ 這裡改用 env.COOKIE_KV
+    const oldCookie = (await env.COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
 
@@ -142,8 +139,9 @@ export async function GET(req: NextRequest) {
     finalCookie = listResObj.cookie;
     const listRes = listResObj.response;
 
+    // ✅ 同樣用 env.COOKIE_KV
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
-      await COOKIE_KV.put("cookie", finalCookie);
+      await env.COOKIE_KV.put("cookie", finalCookie);
     }
 
     const json = (await listRes.json()) as ListResponse;
