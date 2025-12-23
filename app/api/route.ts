@@ -1,5 +1,6 @@
+/// <reference types="@cloudflare/workers-types" />
 declare global {
-  const COOKIE_KV: any;
+  const COOKIE_KV: KVNamespace;
 }
 
 export const runtime = "edge";
