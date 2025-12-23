@@ -71,31 +71,28 @@ async function proxyDownload(
   url: string,
   headers: Headers
 ): Promise<Response> {
-  // 轉發 Range / If-Range
   const range = req.headers.get("range");
   if (range) {
     headers.set("Range", range);
   }
 
   const upstream = await fetchFollowWithCookies(url, headers);
-  const { response, cookie } = upstream;
+  const { response } = upstream;
 
   if (!response.ok && response.status !== 206) {
     throw new Error(`Response error: ${response.status}`);
   }
 
-  // 複製上游 headers（但過濾危險的）
   const resHeaders = new Headers();
   response.headers.forEach((value, key) => {
     if (
       key.toLowerCase().startsWith("content") ||
-      key === "accept-ranges"
+      key.toLowerCase() === "accept-ranges"
     ) {
       resHeaders.set(key, value);
     }
   });
 
-  // CORS
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Expose-Headers", "*");
 
@@ -120,20 +117,17 @@ export async function GET(req: NextRequest) {
       "Referer": "https://1024terabox.com/",
     });
 
-    //if (process.env.COOKIE) {
-    //  headers.set("Cookie", process.env.COOKIE);
-    //}
     const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) {
       headers.set("Cookie", oldCookie);
     }
     let finalCookie = oldCookie;
 
-    /* ===== Step 1：分享頁（完整 redirect + cookie） ===== */
-    const pageRes = await fetchFollowWithCookies(link, headers);
-    finalCookie = pageRes.cookie;
-    const finalUrl = new URL(pageRes.url);
+    const pageResObj = await fetchFollowWithCookies(link, headers);
+    finalCookie = pageResObj.cookie;
+    const pageRes = pageResObj.response;
 
+    const finalUrl = new URL(pageRes.url);
     const surl = finalUrl.searchParams.get("surl");
     if (!surl) {
       return NextResponse.json({ error: "Missing surl" }, { status: 400 });
@@ -145,37 +139,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing jsToken" }, { status: 400 });
     }
 
-    /* ===== Step 2：list API（同樣帶 cookie） ===== */
     const api =
       "https://www.terabox.com/share/list" +
       `?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${jsToken}` +
       `&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
-    const listRes = await fetchFollowWithCookies(api, headers);
-    finalCookie = listRes.cookie;
+    const listResObj = await fetchFollowWithCookies(api, headers);
+    finalCookie = listResObj.cookie;
+    const listRes = listResObj.response;
 
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
       await COOKIE_KV.put("cookie", finalCookie);
     }
 
     const json = await listRes.json();
-
     if (!json?.list?.length) {
       return NextResponse.json({ error: "Empty list" }, { status: 400 });
     }
 
     const file = json.list[0];
 
-    /* ===== proxy 模式（Edge streaming） ===== */
     if (searchParams.has("proxy")) {
       return await proxyDownload(req, file.dlink, headers);
     }
 
-    /* ===== direct link（GET，不用 HEAD） ===== */
     let direct_link = "";
     if (!searchParams.has("nodirectlink")) {
-      const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
-      direct_link = dlinkRes.url;
+      const dlinkResObj = await fetchFollowWithCookies(file.dlink, headers);
+      direct_link = dlinkResObj.response.url;
     }
 
     if (searchParams.has("download")) {
