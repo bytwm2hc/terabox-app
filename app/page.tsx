@@ -15,20 +15,13 @@ interface ResponseData {
   sizebytes: number;
 }
 
-interface ErrorResponse {
-  error: string;
-}
-
 const fetchWithToken = async (url: URL | RequestInfo) => {
   const res = await fetch(url);
   if (!res.ok) {
-    const errorRes = await res.json();
-    const error = new Error();
-    error.message = errorRes?.error;
-    throw error;
+    const errorRes = (await res.json()) as { error?: string };
+    throw new Error(errorRes.error ?? "Unknown error");
   }
-
-  return await res.json();
+  return (await res.json()) as ResponseData;
 };
 
 function isValidUrl(url: string | URL) {
