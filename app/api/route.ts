@@ -1,11 +1,8 @@
-/// <reference types="@cloudflare/workers-types" />
-declare global {
-  const COOKIE_KV: KVNamespace;
-}
-
 export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
+interface Env {
+  COOKIE_KV: KVNamespace;
+}
 
 function getFormattedSize(bytes: number) {
   if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
@@ -117,7 +114,7 @@ export async function GET(req: NextRequest) {
       Referer: "https://1024terabox.com/",
     });
 
-    const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
+    const oldCookie = (await context.env.COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
 
@@ -143,7 +140,7 @@ export async function GET(req: NextRequest) {
     const listRes = listResObj.response;
 
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
-      await COOKIE_KV.put("cookie", finalCookie);
+      await context.env.COOKIE_KV.put("cookie", finalCookie);
     }
 
     const json = (await listRes.json()) as ListResponse;
