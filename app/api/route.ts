@@ -1,3 +1,7 @@
+declare global {
+  const COOKIE_KV: KVNamespace;
+}
+
 export const runtime = "edge";
 
 import { NextRequest, NextResponse } from "next/server";
