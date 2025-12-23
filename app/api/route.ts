@@ -1,5 +1,5 @@
 declare const COOKIE_KV: KVNamespace;  // 告訴 TS 這是 global
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"; // 這是官方方式
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // 型別安全 interface
