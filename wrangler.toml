@@ -1,0 +1,12 @@
+name = "terabox-web"  # 你的 project 名稱，隨便填但要唯一
+compatibility_date = "2025-11-17"  # 用今天或更晚
+compatibility_flags = ["nodejs_compat"]
+
+main = ".open-next/server-functions/index.mjs"  # 通常是這個，build 後會產生
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[kv_namespaces]
+binding = "COOKIE_KV"
+id = "6f04acc9b12148e28dfd23bb04edba5a"  # Dashboard > Workers & Pages > KV > 你的 namespace > Namespace ID
