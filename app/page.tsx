@@ -15,6 +15,10 @@ interface ResponseData {
   sizebytes: number;
 }
 
+interface ErrorResponse {
+  error: string;
+}
+
 const fetchWithToken = async (url: URL | RequestInfo) => {
   const res = await fetch(url);
   if (!res.ok) {
