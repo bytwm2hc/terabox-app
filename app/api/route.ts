@@ -16,6 +16,15 @@ function findBetween(str: string, start: string, end: string) {
   return str.substring(s + start.length, e);
 }
 
+function normalizeCookie(cookie: string) {
+  return cookie
+    .split(";")
+    .map(c => c.trim())
+    .filter(Boolean)
+    .sort()
+    .join("; ");
+}
+
 async function fetchFollowWithCookies(
   url: string,
   headers: Headers,
@@ -51,6 +60,44 @@ async function fetchFollowWithCookies(
   }
 
   throw new Error("Too many redirects");
+}
+
+async function proxyDownload(
+  req: NextRequest,
+  url: string,
+  headers: Headers
+): Promise<Response> {
+  // 轉發 Range / If-Range
+  const range = req.headers.get("range");
+  if (range) {
+    headers.set("Range", range);
+  }
+
+  const upstream = await fetchFollowWithCookies(url, headers);
+
+  if (!upstream.ok && upstream.status !== 206) {
+    throw new Error(`Upstream error: ${upstream.status}`);
+  }
+
+  // 複製上游 headers（但過濾危險的）
+  const resHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    if (
+      key.toLowerCase().startsWith("content") ||
+      key === "accept-ranges"
+    ) {
+      resHeaders.set(key, value);
+    }
+  });
+
+  // CORS
+  resHeaders.set("Access-Control-Allow-Origin", "*");
+  resHeaders.set("Access-Control-Expose-Headers", "*");
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: resHeaders,
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -102,7 +149,7 @@ export async function GET(req: NextRequest) {
     const listRes = await fetchFollowWithCookies(api, headers);
     finalCookie = listRes.cookie;
 
-    if (finalCookie && finalCookie !== oldCookie) {
+    if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
       await COOKIE_KV.put("cookie", finalCookie);
     }
 
@@ -152,42 +199,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function proxyDownload(
-  req: NextRequest,
-  url: string,
-  headers: Headers
-): Promise<Response> {
-  // 轉發 Range / If-Range
-  const range = req.headers.get("range");
-  if (range) {
-    headers.set("Range", range);
-  }
-
-  const upstream = await fetchFollowWithCookies(url, headers);
-
-  if (!upstream.ok && upstream.status !== 206) {
-    throw new Error(`Upstream error: ${upstream.status}`);
-  }
-
-  // 複製上游 headers（但過濾危險的）
-  const resHeaders = new Headers();
-  upstream.headers.forEach((value, key) => {
-    if (
-      key.toLowerCase().startsWith("content") ||
-      key === "accept-ranges"
-    ) {
-      resHeaders.set(key, value);
-    }
-  });
-
-  // CORS
-  resHeaders.set("Access-Control-Allow-Origin", "*");
-  resHeaders.set("Access-Control-Expose-Headers", "*");
-
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: resHeaders,
-  });
 }
