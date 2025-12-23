@@ -1,3 +1,4 @@
+declare const COOKIE_KV: KVNamespace;  // 告訴 TS 這是 global
 export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -90,7 +91,7 @@ async function proxyDownload(req: NextRequest, url: string, headers: Headers): P
 // ---------------------------
 // 改動的核心：使用 env 取得 KV
 // ---------------------------
-export async function GET(req: NextRequest, env: { COOKIE_KV: KVNamespace }) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest, env: { COOKIE_KV: KVNamespace }) {
     });
 
     // ✅ 從 env 拿 KV
-    const oldCookie = (await env.COOKIE_KV.get("cookie")) ?? "";
+    const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
 
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest, env: { COOKIE_KV: KVNamespace }) {
     const listRes = listResObj.response;
 
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
-      await env.COOKIE_KV.put("cookie", finalCookie);
+      await COOKIE_KV.put("cookie", finalCookie);
     }
 
     const json = (await listRes.json()) as ListResponse;
