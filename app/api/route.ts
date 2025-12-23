@@ -104,6 +104,10 @@ interface ListResponse {
   }>;
 }
 
+interface ErrorResponse {
+  error: string;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
