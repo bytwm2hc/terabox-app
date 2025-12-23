@@ -1,5 +1,5 @@
 declare global {
-  const COOKIE_KV: KVNamespace;
+  const COOKIE_KV: any;
 }
 
 export const runtime = "edge";
