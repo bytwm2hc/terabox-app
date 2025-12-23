@@ -90,7 +90,7 @@ async function proxyDownload(req: NextRequest, url: string, headers: Headers): P
 // ---------------------------
 // 改動的核心：使用 env 取得 KV
 // ---------------------------
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, env: { COOKIE_KV: KVNamespace }) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     });
 
     // ✅ 從 env 拿 KV
-    const oldCookie = (await process.env.COOKIE_KV.get("cookie")) ?? "";
+    const oldCookie = (await env.COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
 
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
     const listRes = listResObj.response;
 
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
-      await process.env.COOKIE_KV.put("cookie", finalCookie);
+      await env.COOKIE_KV.put("cookie", finalCookie);
     }
 
     const json = (await listRes.json()) as ListResponse;
