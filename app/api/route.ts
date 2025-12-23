@@ -20,7 +20,7 @@ async function fetchFollowWithCookies(
   url: string,
   headers: Headers,
   maxRedirects = 10
-): Promise<Response> {
+): Promise<{ response: Response; cookie: string }> {
   let current = url;
   let cookieStore = headers.get("Cookie") ?? "";
 
@@ -38,14 +38,16 @@ async function fetchFollowWithCookies(
 
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
-      if (!location) return res;
+      if (!location) {
+        return { response: res, cookie: cookieStore };
+      }
       current = location.startsWith("http")
         ? location
         : new URL(location, current).toString();
       continue;
     }
 
-    return res;
+    return { response: res, cookie: cookieStore };
   }
 
   throw new Error("Too many redirects");
@@ -66,12 +68,18 @@ export async function GET(req: NextRequest) {
       "Referer": "https://1024terabox.com/",
     });
 
-    if (process.env.COOKIE) {
-      headers.set("Cookie", process.env.COOKIE);
+    //if (process.env.COOKIE) {
+    //  headers.set("Cookie", process.env.COOKIE);
+    //}
+    const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
+    if (oldCookie) {
+      headers.set("Cookie", oldCookie);
     }
+    let finalCookie = oldCookie;
 
     /* ===== Step 1：分享頁（完整 redirect + cookie） ===== */
     const pageRes = await fetchFollowWithCookies(link, headers);
+    finalCookie = pageRes.cookie;
     const finalUrl = new URL(pageRes.url);
 
     const surl = finalUrl.searchParams.get("surl");
@@ -79,7 +87,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing surl" }, { status: 400 });
     }
 
-    const html = await pageRes.text();    const jsToken = findBetween(html, "fn%28%22", "%22%29");
+    const html = await pageRes.text();
+    const jsToken = findBetween(html, "fn%28%22", "%22%29");
     if (!jsToken) {
       return NextResponse.json({ error: "Missing jsToken" }, { status: 400 });
     }
@@ -91,6 +100,12 @@ export async function GET(req: NextRequest) {
       `&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
     const listRes = await fetchFollowWithCookies(api, headers);
+    finalCookie = listRes.cookie;
+
+    if (finalCookie && finalCookie !== oldCookie) {
+      await COOKIE_KV.put("cookie", finalCookie);
+    }
+
     const json = await listRes.json();
 
     if (!json?.list?.length) {
