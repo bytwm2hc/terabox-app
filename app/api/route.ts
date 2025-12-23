@@ -52,9 +52,7 @@ async function fetchFollowWithCookies(
 
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
-      if (!location) {
-        return { response: res, cookie: cookieStore };
-      }
+      if (!location) return { response: res, cookie: cookieStore };
       current = location.startsWith("http")
         ? location
         : new URL(location, current).toString();
@@ -73,25 +71,18 @@ async function proxyDownload(
   headers: Headers
 ): Promise<Response> {
   const range = req.headers.get("range");
-  if (range) {
-    headers.set("Range", range);
-  }
+  if (range) headers.set("Range", range);
 
   const upstream = await fetchFollowWithCookies(url, headers);
   const { response } = upstream;
 
-  if (!response.ok && response.status !== 206) {
+  if (!response.ok && response.status !== 206)
     throw new Error(`Response error: ${response.status}`);
-  }
 
   const resHeaders = new Headers();
   response.headers.forEach((value, key) => {
-    if (
-      key.toLowerCase().startsWith("content") ||
-      key.toLowerCase() === "accept-ranges"
-    ) {
+    if (key.toLowerCase().startsWith("content") || key.toLowerCase() === "accept-ranges")
       resHeaders.set(key, value);
-    }
   });
 
   resHeaders.set("Access-Control-Allow-Origin", "*");
@@ -103,25 +94,31 @@ async function proxyDownload(
   });
 }
 
+// 型別安全 interface
+interface ListResponse {
+  list: Array<{
+    dlink: string;
+    server_filename: string;
+    size: string;
+    thumbs?: { url3: string };
+  }>;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
-    if (!link) {
-      return NextResponse.json({ error: "Missing data" }, { status: 400 });
-    }
+    if (!link) return NextResponse.json({ error: "Missing data" }, { status: 400 });
 
     const headers = new Headers({
       "User-Agent":
         process.env["USER-AGENT"] ??
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-      "Referer": "https://1024terabox.com/",
+      Referer: "https://1024terabox.com/",
     });
 
     const oldCookie = (await COOKIE_KV.get("cookie")) ?? "";
-    if (oldCookie) {
-      headers.set("Cookie", oldCookie);
-    }
+    if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
 
     const pageResObj = await fetchFollowWithCookies(link, headers);
@@ -130,15 +127,11 @@ export async function GET(req: NextRequest) {
 
     const finalUrl = new URL(pageRes.url);
     const surl = finalUrl.searchParams.get("surl");
-    if (!surl) {
-      return NextResponse.json({ error: "Missing surl" }, { status: 400 });
-    }
+    if (!surl) return NextResponse.json({ error: "Missing surl" }, { status: 400 });
 
     const html = await pageRes.text();
     const jsToken = findBetween(html, "fn%28%22", "%22%29");
-    if (!jsToken) {
-      return NextResponse.json({ error: "Missing jsToken" }, { status: 400 });
-    }
+    if (!jsToken) return NextResponse.json({ error: "Missing jsToken" }, { status: 400 });
 
     const api =
       "https://www.terabox.com/share/list" +
@@ -153,16 +146,12 @@ export async function GET(req: NextRequest) {
       await COOKIE_KV.put("cookie", finalCookie);
     }
 
-    const json = await listRes.json();
-    if (!json?.list?.length) {
-      return NextResponse.json({ error: "Empty list" }, { status: 400 });
-    }
+    const json = (await listRes.json()) as ListResponse;
+    if (!json.list?.length) return NextResponse.json({ error: "Empty list" }, { status: 400 });
 
     const file = json.list[0];
 
-    if (searchParams.has("proxy")) {
-      return await proxyDownload(req, file.dlink, headers);
-    }
+    if (searchParams.has("proxy")) return await proxyDownload(req, file.dlink, headers);
 
     let direct_link = "";
     if (!searchParams.has("nodirectlink")) {
@@ -170,9 +159,7 @@ export async function GET(req: NextRequest) {
       direct_link = dlinkResObj.response.url;
     }
 
-    if (searchParams.has("download")) {
-      return NextResponse.redirect(direct_link, 302);
-    }
+    if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
 
     return NextResponse.json(
       {
@@ -191,9 +178,6 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Unknown Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message ?? "Unknown Error" }, { status: 500 });
   }
 }
