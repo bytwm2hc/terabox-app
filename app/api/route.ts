@@ -1,11 +1,6 @@
 export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
-// KV 介面
-interface Env {
-  COOKIE_KV: KVNamespace;
-}
-
 // 型別安全 interface
 interface ListResponse {
   list: Array<{
@@ -50,6 +45,7 @@ async function fetchFollowWithCookies(
 
   for (let i = 0; i < maxRedirects; i++) {
     const res = await fetch(current, { headers, redirect: "manual" });
+
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
       cookieStore += (cookieStore ? "; " : "") + setCookie;
@@ -59,9 +55,7 @@ async function fetchFollowWithCookies(
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
       if (!location) return { response: res, cookie: cookieStore };
-      current = location.startsWith("http")
-        ? location
-        : new URL(location, current).toString();
+      current = location.startsWith("http") ? location : new URL(location, current).toString();
       continue;
     }
 
@@ -71,11 +65,7 @@ async function fetchFollowWithCookies(
   throw new Error("Too many redirects");
 }
 
-async function proxyDownload(
-  req: NextRequest,
-  url: string,
-  headers: Headers
-): Promise<Response> {
+async function proxyDownload(req: NextRequest, url: string, headers: Headers): Promise<Response> {
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
@@ -94,13 +84,13 @@ async function proxyDownload(
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Expose-Headers", "*");
 
-  return new Response(response.body, {
-    status: response.status,
-    headers: resHeaders,
-  });
+  return new Response(response.body, { status: response.status, headers: resHeaders });
 }
 
-export async function GET(req: NextRequest, env: Env) {
+// ---------------------------
+// 改動的核心：使用 env 取得 KV
+// ---------------------------
+export async function GET(req: NextRequest, env: { COOKIE_KV: KVNamespace }) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
@@ -113,7 +103,7 @@ export async function GET(req: NextRequest, env: Env) {
       Referer: "https://1024terabox.com/",
     });
 
-    // ✅ 這裡改用 env.COOKIE_KV
+    // ✅ 從 env 拿 KV
     const oldCookie = (await env.COOKIE_KV.get("cookie")) ?? "";
     if (oldCookie) headers.set("Cookie", oldCookie);
     let finalCookie = oldCookie;
@@ -139,7 +129,6 @@ export async function GET(req: NextRequest, env: Env) {
     finalCookie = listResObj.cookie;
     const listRes = listResObj.response;
 
-    // ✅ 同樣用 env.COOKIE_KV
     if (normalizeCookie(finalCookie) !== normalizeCookie(oldCookie)) {
       await env.COOKIE_KV.put("cookie", finalCookie);
     }
@@ -168,12 +157,7 @@ export async function GET(req: NextRequest, env: Env) {
         size: getFormattedSize(+file.size),
         sizebytes: +file.size,
       },
-      {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "no-store",
-        },
-      }
+      { headers: { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" } }
     );
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown Error" }, { status: 500 });
