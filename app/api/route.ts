@@ -1,6 +1,6 @@
 declare const COOKIE_KV: KVNamespace;  // 告訴 TS 這是 global
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // 型別安全 interface
 interface ListResponse {
