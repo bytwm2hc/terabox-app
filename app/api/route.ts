@@ -78,14 +78,15 @@ async function proxyDownload(
   }
 
   const upstream = await fetchFollowWithCookies(url, headers);
+  const { response, cookie } = upstream;
 
-  if (!upstream.ok && upstream.status !== 206) {
-    throw new Error(`Upstream error: ${upstream.status}`);
+  if (!response.ok && response.status !== 206) {
+    throw new Error(`Response error: ${response.status}`);
   }
 
   // 複製上游 headers（但過濾危險的）
   const resHeaders = new Headers();
-  upstream.headers.forEach((value, key) => {
+  response.headers.forEach((value, key) => {
     if (
       key.toLowerCase().startsWith("content") ||
       key === "accept-ranges"
@@ -98,8 +99,8 @@ async function proxyDownload(
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Expose-Headers", "*");
 
-  return new Response(upstream.body, {
-    status: upstream.status,
+  return new Response(response.body, {
+    status: response.status,
     headers: resHeaders,
   });
 }
