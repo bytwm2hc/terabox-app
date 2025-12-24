@@ -1,6 +1,9 @@
-//export const runtime = "edge";
+// ❌ 不要用 edge
+// export const runtime = "edge";
 
 import { NextRequest, NextResponse } from "next/server";
+
+/* ================= utils ================= */
 
 function getFormattedSize(bytes: number) {
   if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
@@ -16,15 +19,23 @@ function findBetween(str: string, start: string, end: string) {
   return str.substring(s + start.length, e);
 }
 
+/* ========== fetch with redirect + cookie ========== */
+
 async function fetchFollowWithCookies(
   url: string,
-  headers: Headers,
+  baseHeaders: Headers,
   maxRedirects = 10
 ): Promise<Response> {
   let current = url;
-  let cookieStore = headers.get("Cookie") ?? "";
+  let cookieStore = baseHeaders.get("Cookie") ?? "";
 
   for (let i = 0; i < maxRedirects; i++) {
+    const headers = new Headers(baseHeaders); // ⭐ clone
+
+    if (cookieStore) {
+      headers.set("Cookie", cookieStore);
+    }
+
     const res = await fetch(current, {
       headers,
       redirect: "manual",
@@ -32,13 +43,15 @@ async function fetchFollowWithCookies(
 
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
-      cookieStore += (cookieStore ? "; " : "") + setCookie;
-      headers.set("Cookie", cookieStore);
+      // ⭐ 只取 key=value
+      const cookiePair = setCookie.split(";")[0];
+      cookieStore += (cookieStore ? "; " : "") + cookiePair;
     }
 
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
       if (!location) return res;
+
       current = location.startsWith("http")
         ? location
         : new URL(location, current).toString();
@@ -51,10 +64,13 @@ async function fetchFollowWithCookies(
   throw new Error("Too many redirects");
 }
 
+/* ================= GET handler ================= */
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
+
     if (!link) {
       return NextResponse.json({ error: "Missing data" }, { status: 400 });
     }
@@ -62,15 +78,15 @@ export async function GET(req: NextRequest) {
     const headers = new Headers({
       "User-Agent":
         process.env["USER-AGENT"] ??
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-      "Referer": "https://1024terabox.com/",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+      Referer: "https://1024terabox.com/",
     });
 
     if (process.env.COOKIE) {
       headers.set("Cookie", process.env.COOKIE);
     }
 
-    /* ===== Step 1：分享頁（完整 redirect + cookie） ===== */
+    /* ===== Step 1：分享頁 ===== */
     const pageRes = await fetchFollowWithCookies(link, headers);
     const finalUrl = new URL(pageRes.url);
 
@@ -79,39 +95,52 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing surl" }, { status: 400 });
     }
 
-    const html = await pageRes.text();    const jsToken = findBetween(html, "fn%28%22", "%22%29");
+    const html = await pageRes.text();
+
+    // ⭐ 多種 jsToken fallback（新版 Terabox）
+    const jsToken =
+      findBetween(html, 'fn("', '")') ||
+      findBetween(html, "fn%28%22", "%22%29") ||
+      findBetween(html, 'jsToken":"', '"');
+
     if (!jsToken) {
       return NextResponse.json({ error: "Missing jsToken" }, { status: 400 });
     }
 
-    /* ===== Step 2：list API（同樣帶 cookie） ===== */
+    /* ===== Step 2：list API ===== */
+    headers.set("Referer", pageRes.url); // ⭐ 必須補
+
     const api =
       "https://www.terabox.com/share/list" +
-      `?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${jsToken}` +
+      `?app_id=250528&web=1&channel=dubox&clienttype=0` +
+      `&jsToken=${jsToken}` +
       `&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
     const listRes = await fetchFollowWithCookies(api, headers);
     const json = await listRes.json();
 
     if (!json?.list?.length) {
-      return NextResponse.json({ error: "Empty list" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Empty list or invalid cookie" },
+        { status: 400 }
+      );
     }
 
     const file = json.list[0];
 
-    /* ===== proxy 模式（Edge streaming） ===== */
+    /* ===== proxy 模式 ===== */
     if (searchParams.has("proxy")) {
-      return await proxyDownload(req, file.dlink, headers);
+      return await proxyDownload(req, file.dlink);
     }
 
-    /* ===== direct link（GET，不用 HEAD） ===== */
+    /* ===== direct link ===== */
     let direct_link = "";
     if (!searchParams.has("nodirectlink")) {
       const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
       direct_link = dlinkRes.url;
     }
 
-    if (searchParams.has("download")) {
+    if (searchParams.has("download") && direct_link) {
       return NextResponse.redirect(direct_link, 302);
     }
 
@@ -139,24 +168,28 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/* ================= proxy download ================= */
+
 async function proxyDownload(
   req: NextRequest,
-  url: string,
-  headers: Headers
+  url: string
 ): Promise<Response> {
-  // 轉發 Range / If-Range
+  // ⭐ CDN 不要帶 cookie
+  const headers = new Headers();
+
   const range = req.headers.get("range");
   if (range) {
     headers.set("Range", range);
   }
 
-  const upstream = await fetchFollowWithCookies(url, headers);
+  const upstream = await fetch(url, {
+    headers,
+  });
 
   if (!upstream.ok && upstream.status !== 206) {
     throw new Error(`Upstream error: ${upstream.status}`);
   }
 
-  // 複製上游 headers（但過濾危險的）
   const resHeaders = new Headers();
   upstream.headers.forEach((value, key) => {
     if (
@@ -167,7 +200,6 @@ async function proxyDownload(
     }
   });
 
-  // CORS
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Expose-Headers", "*");
 

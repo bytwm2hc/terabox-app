@@ -194,15 +194,17 @@ export default function Home() {
         <main className="my-10 py-10 bg-slate-700 rounded-lg items-start flex flex-col justify-start gap-2">
           <div className="w-full">
             <div className="rounded-md flex justify-center items-center ">
-              <Image
-                className="blur-md hover:filter-none rounded-md p-3 transition duration-300 ease-in-out transform scale-100 hover:scale-110 hover:rounded-md opacity-100 hover:opacity-100 "
-                style={{ objectFit: "contain" }}
-                loading="lazy"
-                src={data?.thumb}
-                height={200}
-                width={200}
-                alt={""}
-              />
+              {data?.thumb && (
+                <Image
+                  className="blur-md hover:filter-none rounded-md p-3 transition duration-300 ease-in-out transform scale-100 hover:scale-110 hover:rounded-md opacity-100 hover:opacity-100 "
+                  style={{ objectFit: "contain" }}
+                  loading="lazy"
+                  src={data?.thumb}
+                  height={200}
+                  width={200}
+                  alt={""}
+                />
+              )}
             </div>
           </div>
           <div className="pl-3 pt-3">
