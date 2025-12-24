@@ -19,13 +19,60 @@ function findBetween(str: string, start: string, end: string) {
   return str.substring(s + start.length, e);
 }
 
-function normalizeCookie(cookie: string) {
-  return cookie
-    .split(";")
-    .map(v => v.trim())
-    .filter(Boolean)
-    .sort()
-    .join("; ");
+/**
+ * 將可能混有 Set-Cookie 屬性的字串，正規化為僅包含 name=value 的 Cookie 字串。
+ * @param {string} cookie - 來源字串，可能來自錯誤地把 Set-Cookie 拼接在一起。
+ * @param {object} [options]
+ * @param {boolean} [options.sort=true] - 是否按鍵名排序輸出（預設 true，和你的原始行為一致）。
+ * @returns {string} - 僅包含 name=value 的 Cookie 串。
+ */
+function normalizeCookie(cookie, options = { sort: true }) {
+  if (typeof cookie !== 'string') return '';
+
+  const ATTR_NAMES = new Set([
+     'expires', 'path', 'domain', 'max-age', 'samesite',
+     'secure', 'httponly', 'priority', 'partitioned'
+   ]);
+
+  const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+  const map = new Map(); // key -> value（保留最後一個非空值）
+
+  for (const part of parts) {
+    // 判斷像 "Secure"、"HttpOnly" 這種 flag（沒有 '='），直接視為屬性丟棄
+    const eqIdx = part.indexOf('=');
+    if (eqIdx === -1) {
+      const maybeAttr = part.toLowerCase();
+      if (ATTR_NAMES.has(maybeAttr)) continue; // 屬性 → 忽略
+      // 沒有 '=' 又不是已知屬性：這通常是異常片段，忽略
+      continue;
+    }
+
+    const key = part.slice(0, eqIdx).trim();
+    const value = part.slice(eqIdx + 1).trim();
+
+    // 檢查屬性名稱（不區分大小寫）
+    if (ATTR_NAMES.has(key.toLowerCase())) {
+      // 像 "expires=Thu, 24-Dec-2026 01:46:35 GMT" → 忽略
+      continue;
+    }
+
+    // 合法的 cookie 名稱通常非空，保留 __Host- / __Secure- 等前綴的 cookie
+    if (!key) continue;
+
+    // 若遇到同名 cookie，保留最後一個 **非空值**，避免像 "lang=" 之後又有 "lang=zh"
+    if (value === '') {
+      // 空值：只在尚未有非空值時覆蓋
+      if (!map.has(key)) map.set(key, value);
+    } else {
+      map.set(key, value);
+    }
+  }
+
+  let entries = Array.from(map.entries());
+  if (options.sort) {
+    entries = entries.sort(([a], [b]) => a.localeCompare(b));
+  }
+  return entries.map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
 /* ========= fetch with redirect + cookie ========= */
