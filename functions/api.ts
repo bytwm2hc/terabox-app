@@ -3,6 +3,10 @@ export interface Env {
   USER_AGENT?: string;
 }
 
+type NormalizeCookieOptions = {
+  sort?: boolean;
+};
+
 /* ========= utils ========= */
 
 function getFormattedSize(bytes: number) {
@@ -26,7 +30,7 @@ function findBetween(str: string, start: string, end: string) {
  * @param {boolean} [options.sort=true] - 是否按鍵名排序輸出（預設 true，和你的原始行為一致）。
  * @returns {string} - 僅包含 name=value 的 Cookie 串。
  */
-function normalizeCookie(cookie, options = { sort: true }) {
+function normalizeCookie(cookie: string, options: NormalizeCookieOptions = { sort: true }) {
   if (typeof cookie !== 'string') return '';
 
   const ATTR_NAMES = new Set([
