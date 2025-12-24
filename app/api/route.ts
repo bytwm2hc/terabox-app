@@ -3,6 +3,19 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+type TeraBoxFile = {
+  dlink: string;
+  server_filename: string;
+  size: number | string;
+  thumb?: {
+    url3?: string;
+  };
+};
+
+type ShareListResponse = {
+  list: TeraBoxFile[];
+};
+
 /* ================= utils ================= */
 
 function getFormattedSize(bytes: number) {
@@ -117,7 +130,7 @@ export async function GET(req: NextRequest) {
       `&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
     const listRes = await fetchFollowWithCookies(api, headers);
-    const json = await listRes.json();
+    const json = (await listRes.json()) as ShareListResponse;
 
     if (!json?.list?.length) {
       return NextResponse.json(
