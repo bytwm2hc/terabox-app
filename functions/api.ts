@@ -95,10 +95,10 @@ async function fetchFollowWithCookies(
       redirect: "manual",
     });
 
-    const setCookie = res.headers.get("set-cookie");
-    if (setCookie) {
-      cookieStore += (cookieStore ? "; " : "") + setCookie;
-      headers.set("Cookie", cookieStore);
+    const setCookies = res.headers.getSetCookie?.() ?? [];
+    for (const sc of setCookies) {
+      const [pair] = sc.split(";");
+      cookieStore += (cookieStore ? "; " : "") + pair;
     }
 
     if (res.status >= 300 && res.status < 400) {
