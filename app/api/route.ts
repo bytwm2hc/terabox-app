@@ -7,7 +7,7 @@ type TeraBoxFile = {
   dlink: string;
   server_filename: string;
   size: number | string;
-  thumb?: {
+  thumbs?: {
     url3?: string;
   };
 };
