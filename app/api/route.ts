@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     if (!link) return NextResponse.json({ error: "Missing data" }, { status: 400, headers: corsHeaders });
 
     const headers = new Headers({
-      "User-Agent": process.env["USER_AGENT"] ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": process.env["USER_AGENT"] ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Referer": "https://1024terabox.com/",
     });
     if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
