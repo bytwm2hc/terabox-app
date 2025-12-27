@@ -65,6 +65,7 @@ async function fetchFollowWithCookies(url: string, baseHeaders: Headers, maxRedi
 /* ================= GET handler ================= */
 export async function GET(req: NextRequest) {
   try {
+    const ctx = (req as any).context;
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
 
@@ -151,5 +152,8 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   });
 
   resHeaders.set("Access-Control-Allow-Origin", "*");
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(Promise.resolve()); // 強制要求環境維持活躍
+  }
   return new Response(upstream.body, { status: upstream.status, headers: resHeaders });
 }
