@@ -98,17 +98,22 @@ export async function GET(req: NextRequest) {
 
     const file = json.list[0];
 
-    /* Proxy 模式 */
-    if (searchParams.has("proxy")) return await proxyDownload(req, file.dlink);
-
-    /* Direct Link */
+    /* ===== 1. 先獲取高速 Direct Link ===== */
     let direct_link = "";
-    if (!searchParams.has("nodirectlink")) {
-      const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
-      direct_link = dlinkRes.url;
+    // 無論有沒有 proxy 參數，我們都先拿到高速連結
+    const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
+    direct_link = dlinkRes.url; 
+
+    /* ===== 2. 判斷是否使用代理下載 ===== */
+    if (searchParams.has("proxy")) {
+      // ⭐ 重點：這裡傳入的是獲取到的高速 direct_link，而不是 file.dlink
+      return await proxyDownload(req, direct_link);
     }
 
-    if (searchParams.has("download") && direct_link) return NextResponse.redirect(direct_link, 302);
+    /* ===== 3. 其餘一般回應邏輯 ===== */
+    if (searchParams.has("download") && direct_link) {
+      return NextResponse.redirect(direct_link, 302);
+    }
 
     return NextResponse.json(
       {
