@@ -62,7 +62,9 @@ export async function GET(req: NextRequest) {
     if (!link) return NextResponse.json({ error: "請提供有效連結" }, { status: 400 });
 
     // --- A. 快取讀取 ---
-    const cache = caches.default;
+    // 將 caches 轉型為 any，繞過標準 Web 類型的檢查
+    const cache = (caches as any).default; 
+
     const cacheUrl = new URL(`${origin}/api/_cache/terabox`);
     cacheUrl.searchParams.set("q", link);
     const cacheKey = new Request(cacheUrl.toString());
