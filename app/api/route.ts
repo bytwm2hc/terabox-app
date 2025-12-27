@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// ✅ 必須啟用，否則 Cloudflare Pages 無法處理 Fetch 跳轉
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
@@ -28,14 +27,12 @@ function findBetween(str: string, start: string, end: string) {
   return str.substring(s + start.length, e);
 }
 
-// 統一 CORS 標頭
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-/* ========== fetch with redirect + cookie ========== */
 async function fetchFollowWithCookies(url: string, baseHeaders: Headers, maxRedirects = 10): Promise<Response> {
   let current = url;
   let cookieStore = baseHeaders.get("Cookie") ?? "";
@@ -65,6 +62,7 @@ async function fetchFollowWithCookies(url: string, baseHeaders: Headers, maxRedi
 /* ================= GET handler ================= */
 export async function GET(req: NextRequest) {
   try {
+    // 修正：從 req 獲取 context
     const ctx = (req as any).context;
     const { searchParams } = new URL(req.url);
     const link = searchParams.get("data");
@@ -99,19 +97,17 @@ export async function GET(req: NextRequest) {
 
     const file = json.list[0];
 
-    /* ===== 1. 先獲取高速 Direct Link ===== */
-    let direct_link = "";
-    // 無論有沒有 proxy 參數，我們都先拿到高速連結
+    /* ===== 獲取高速 Direct Link ===== */
     const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
-    direct_link = dlinkRes.url; 
+    const direct_link = dlinkRes.url; 
 
-    /* ===== 2. 判斷是否使用代理下載 ===== */
+    /* ===== 判斷是否使用代理下載 ===== */
     if (searchParams.has("proxy")) {
-      // ⭐ 重點：這裡傳入的是獲取到的高速 direct_link，而不是 file.dlink
-      return await proxyDownload(req, direct_link);
+      // 修正：將 ctx 傳入 proxyDownload
+      return await proxyDownload(req, direct_link, ctx);
     }
 
-    /* ===== 3. 其餘一般回應邏輯 ===== */
+    /* ===== 一般回應邏輯 ===== */
     if (searchParams.has("download") && direct_link) {
       return NextResponse.redirect(direct_link, 302);
     }
@@ -132,19 +128,24 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 必須處理 OPTIONS，否則前端跨域會掛掉
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders });
 }
 
 /* ================= proxy download ================= */
-async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
+// 修正：增加 ctx 參數
+async function proxyDownload(req: NextRequest, url: string, ctx?: any): Promise<Response> {
   const headers = new Headers();
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
+  // 增加基本偽裝防止 403
+  headers.set("Referer", "https://www.terabox.com/");
+  headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
   const upstream = await fetch(url, { headers });
   const resHeaders = new Headers();
+  
   upstream.headers.forEach((value, key) => {
     if (key.toLowerCase().startsWith("content") || key === "accept-ranges") {
       resHeaders.set(key, value);
@@ -152,8 +153,11 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   });
 
   resHeaders.set("Access-Control-Allow-Origin", "*");
-  if (ctx?.waitUntil) {
-    ctx.waitUntil(Promise.resolve()); // 強制要求環境維持活躍
+  
+  // 修正：正確呼叫 waitUntil
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(Promise.resolve());
   }
+
   return new Response(upstream.body, { status: upstream.status, headers: resHeaders });
 }
