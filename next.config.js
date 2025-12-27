@@ -1,5 +1,6 @@
 const nextConfig = {
-  reactStrictMode: true, 
+  reactStrictMode: true,
+  distDir: '.next',
   images: {
     unoptimized: true,
     remotePatterns: [
