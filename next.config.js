@@ -1,6 +1,5 @@
 const nextConfig = {
   reactStrictMode: true,
-  distDir: '.next',
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -10,6 +9,8 @@ const nextConfig = {
       },
     ],
   },
+  trailingSlash: false,
+  serverExternalPackages: ["@cloudflare/next-on-pages"],
 };
 
 export default nextConfig;
