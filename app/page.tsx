@@ -18,8 +18,12 @@ const TERABOX_REGEX = new RegExp(`(${TERABOX_DOMAINS.join("|")})\\.(com|co|app|f
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "解析失敗，請確認連結有效性");
+  // 明確宣告 json 的類型為 any，或是自定義介面
+  const json = (await res.json()) as { error?: string; [key: string]: any };
+  
+  if (!res.ok) {
+    throw new Error(json.error || "解析失敗，請確認連結有效性");
+  }
   return json;
 };
 
