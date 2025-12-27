@@ -7,9 +7,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-
 // --- 常量定義 ---
 const TERABOX_DOMAINS = [
   "mirrobox", "nephobox", "freeterabox", "1024tera", "4funbox",
