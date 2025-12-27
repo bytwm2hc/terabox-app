@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 // --- 常量定義 ---
 const TERABOX_DOMAINS = [

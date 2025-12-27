@@ -1,16 +1,25 @@
-import nextPlugin from '@next/eslint-plugin-next';
-import globals from 'globals';
+import { FlatCompat } from "@eslint/eslintrc";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
 
 export default [
-  // 導入 next/core-web-vitals 的規則
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    files: ['**/*.js', '**/*.ts', '**/*.jsx', '**/*.tsx'],
-    ...nextPlugin.configs['core-web-vitals'],
     languageOptions: {
       globals: {
-        ...globals.browser,
-        ...globals.node,
+        process: "readonly",
+        window: "readonly",
       },
+    },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];
