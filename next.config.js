@@ -1,21 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {};
-
-module.exports = {
+const nextConfig = {
+  reactStrictMode: true, 
   images: {
+    unoptimized: true,
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "data.4funbox.com",
-        port: "",
-        pathname: "**",
-      },
-      {
-        protocol: "https",
-        hostname: "data.terabox.app",
-        port: "",
-        pathname: "**",
-      },
       {
         protocol: "https",
         hostname: "**",
@@ -23,3 +10,5 @@ module.exports = {
     ],
   },
 };
+
+export default nextConfig;

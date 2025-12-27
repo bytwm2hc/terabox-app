@@ -1,243 +1,198 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import useSWR from "swr";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-interface ResponseData {
-  file_name: string;
-  link: string;
-  direct_link: string;
-  thumb: string;
-  size: string;
-  sizebytes: number;
-}
+export const runtime = "edge";
 
-const fetchWithToken = async (url: URL | RequestInfo) => {
+// --- 常量定義 ---
+const TERABOX_DOMAINS = [
+  "mirrobox", "nephobox", "freeterabox", "1024tera", "4funbox",
+  "terabox", "teraboxapp", "momerybox", "tibibox", "terabox.fun"
+];
+const TERABOX_REGEX = new RegExp(`(${TERABOX_DOMAINS.join("|")})\\.(com|co|app|fun|ap)`, "i");
+
+const fetcher = async (url: string) => {
   const res = await fetch(url);
-  if (!res.ok) {
-    const errorRes = (await res.json()) as { error?: string };
-    throw new Error(errorRes.error ?? "Unknown error");
-  }
-  return (await res.json()) as ResponseData;
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "解析失敗，請確認連結有效性");
+  return json;
 };
 
-function isValidUrl(url: string | URL) {
-  try {
-    new URL(url);
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
-function checkUrlPatterns(url: string) {
-  const patterns = [
-    /ww\.mirrobox\.com/,
-    /www\.nephobox\.com/,
-    /freeterabox\.com/,
-    /www\.freeterabox\.com/,
-    /1024tera\.com/,
-    /4funbox\.co/,
-    /www\.4funbox\.com/,
-    /mirrobox\.com/,
-    /nephobox\.com/,
-    /terabox\.app/,
-    /terabox\.com/,
-    /www\.terabox\.ap/,
-    /terabox\.fun/,
-    /www\.terabox\.com/,
-    /www\.1024tera\.co/,
-    /www\.momerybox\.com/,
-    /teraboxapp\.com/,
-    /momerybox\.com/,
-    /tibibox\.com/,
-    /www\.tibibox\.com/,
-    /www\.teraboxapp\.com/,
-  ];
-
-  if (!isValidUrl(url)) {
-    return false;
-  }
-
-  for (const pattern of patterns) {
-    if (pattern.test(url)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 export default function Home() {
-  const [link, setLink] = useState("");
-  const [err, setError] = useState("");
+  const [inputValue, setInputValue] = useState("");
   const [token, setToken] = useState("");
-  const [disableInput, setdisableInput] = useState(false);
+  const [localError, setLocalError] = useState("");
 
-  const { data, error, isLoading } = useSWR<ResponseData>(
-    token ? [`/api?data=${encodeURIComponent(token)}`] : null,
-    ([url]: [string]) => fetchWithToken(url),
+  const { data, error, isValidating, mutate } = useSWR(
+    token ? `/api?data=${encodeURIComponent(token)}` : null,
+    fetcher,
     {
-      revalidateIfStale: false,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
+      shouldRetryOnError: false,
     }
   );
 
+  const handleAction = useCallback(async () => {
+    setLocalError("");
+    if (!inputValue.trim()) {
+      setLocalError("請先輸入連結");
+      return;
+    }
+    if (!TERABOX_REGEX.test(inputValue)) {
+      setLocalError("連結格式不正確");
+      return;
+    }
+
+    if (inputValue === token) {
+      mutate();
+    } else {
+      setToken(inputValue);
+    }
+  }, [inputValue, token, mutate]);
+
   useEffect(() => {
-    if (data) document.title = data.file_name;
-    if (data || error) {
-      setdisableInput(false);
-      setLink("");
-    }
-    if (err || error) {
-      setTimeout(() => {
-        setError("");
-      }, 5000);
-    }
-  }, [err, error, data]);
+    if (data?.file_name) document.title = data.file_name;
+  }, [data]);
 
-  async function Submit() {
-    setError("");
-    setdisableInput(true);
-    if (!link) {
-      setError("Please enter a link");
-      return;
+  useEffect(() => {
+    if (localError || error) {
+      const timer = setTimeout(() => setLocalError(""), 5000);
+      return () => clearTimeout(timer);
     }
-    if (!checkUrlPatterns(link)) {
-      setError("Invalid Link");
-      return;
-    }
+  }, [localError, error]);
 
-    setToken(link);
-  }
+  const isLoading = isValidating;
+  const currentError = localError || (error as Error)?.message;
 
   return (
-    <div className="pt-6 mx-12">
-      <nav className="flex justify-between ">
-        <div className="self-center">
-          <Link href="/">Terabox Downloader</Link>
-        </div>
-        <ul className="flex items-center gap-3 ">
-          <li>
-            {/* <Camera color="red" size={48} /> */}
-            <Button className="bg-slate-600  ">
-              <Link href="https://github.com/r0ld3x/terabox-app">Github</Link>
+    <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans">
+      {/* 1. 導覽列：修正 Hover 配色 */}
+      <nav className="border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent whitespace-nowrap">
+            Terabox Downloader
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              asChild 
+              className="hidden sm:inline-flex text-slate-400 hover:bg-slate-800 hover:text-blue-400 transition-colors whitespace-nowrap"
+            >
+              <Link href="https://github.com/r0ld3x/terabox-app" target="_blank">Github</Link>
             </Button>
-          </li>
-          <li>
-            {/* <Camera color="red" size={48} /> */}
-            <Button className="bg-blue-600  ">
-              <Link href="https://t.me/RoldexVerse">Telegram</Link>
+            <Button 
+              size="sm" 
+              className="bg-blue-600 hover:bg-blue-500 text-white shadow-md whitespace-nowrap px-4"
+              asChild
+            >
+              <Link href="https://t.me/RoldexVerse" target="_blank">Telegram</Link>
             </Button>
-          </li>
-        </ul>
-      </nav>
-      <main className="mt-6 py-10 bg-slate-700 rounded-lg items-center flex flex-col justify-center gap-2">
-        <h1 className="text-xl sm:text-3xl font-bold text-center text-white">
-          Terabox Downloader
-        </h1>
-        <p className="text-center text-white">Enter your Terabox link below</p>
-        <div className="flex flex-col justify-center ">
-          <div className="self-center text-black">
-            <Input
-              className="max-w-80"
-              placeholder="Enter the link"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-            />
           </div>
         </div>
-        <div className="self-center">
-          <Button
-            className="bg-green-600"
-            disabled={disableInput}
-            onClick={Submit}
-          >
-            {isLoading && (
-              <div role="status">
-                <svg
-                  aria-hidden="true"
-                  className="w-6 h-6 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
-                  viewBox="0 0 100 101"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                    fill="currentFill"
-                  />
-                </svg>
-                <span className="sr-only">Loading...</span>
+      </nav>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 md:py-20">
+        {/* 2. 輸入區域：解決按鈕折行 */}
+        <section className="bg-slate-800/40 rounded-[2rem] p-6 md:p-12 border border-slate-700/50 shadow-2xl mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h1 className="text-3xl md:text-5xl font-black text-white mb-6 tracking-tight leading-tight">
+              解析下載連結
+            </h1>
+            <p className="text-slate-400 text-base md:text-lg leading-relaxed">
+              貼上您的連結，剩下的交給我們。
+            </p>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div className="flex-1">
+                <Input
+                  className="h-14 bg-slate-900/60 border-slate-700 text-white rounded-2xl px-6 focus:ring-2 focus:ring-blue-500 transition-all text-base w-full"
+                  placeholder="在此貼上連結..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAction()}
+                  disabled={isLoading}
+                />
+              </div>
+              <Button 
+                onClick={handleAction}
+                disabled={isLoading}
+                // 使用 whitespace-nowrap 防止文字折行，w-full sm:w-auto 確保手機版滿寬但電腦版自適應
+                className="h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all active:scale-95 whitespace-nowrap w-full sm:w-auto flex-shrink-0"
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    正在解析
+                  </span>
+                ) : "開始解析"}
+              </Button>
+            </div>
+
+            {currentError && (
+              <div className="mt-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-sm text-center animate-in fade-in zoom-in duration-300">
+                {currentError}
               </div>
             )}
-            Download
-          </Button>
-        </div>
-        {error && (
-          <p className="bg-rose-500 text-white w-full text-center">
-            {error.message}
-          </p>
-        )}
-        {err && (
-          <p className="bg-rose-500 text-white w-full text-center">{err}</p>
+          </div>
+        </section>
+
+        {/* 3. 解析結果：優化排版 */}
+        {data && (
+          <section className="bg-slate-800/60 rounded-[2rem] p-6 md:p-10 border border-blue-500/20 shadow-xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
+              {data.thumb && (
+                <div className="relative shrink-0 w-48 h-48 overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 group shadow-inner">
+                  <Image
+                    className="object-contain p-2 transition duration-700 group-hover:scale-110 blur-md hover:blur-none"
+                    src={data.thumb}
+                    fill
+                    alt="file thumbnail"
+                  />
+                </div>
+              )}
+
+              <div className="flex-1 w-full flex flex-col justify-between min-h-[12rem] text-center md:text-left">
+                <div className="space-y-4">
+                  <div>
+                    <span className="inline-block px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-3">
+                      File Name
+                    </span>
+                    <h2 className="text-xl md:text-2xl font-bold text-white break-all leading-snug">
+                      {data.file_name}
+                    </h2>
+                  </div>
+                  <div>
+                    <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-3">
+                      File Size
+                    </span>
+                    <p className="text-3xl font-mono font-black text-emerald-400 leading-none">{data.size}</p>
+                  </div>
+                </div>
+
+                <div className="pt-8">
+                  <Button asChild className="w-full md:w-auto h-14 px-12 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-emerald-900/20 transition-all hover:-translate-y-1 whitespace-nowrap">
+                    <a href={data.direct_link} target="_blank" rel="noopener noreferrer">
+                      立即下載檔案
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
       </main>
-      {data && (
-        <main className="my-10 py-10 bg-slate-700 rounded-lg items-start flex flex-col justify-start gap-2">
-          <div className="w-full">
-            <div className="rounded-md flex justify-center items-center ">
-              {data?.thumb && (
-                <Image
-                  className="blur-md hover:filter-none rounded-md p-3 transition duration-300 ease-in-out transform scale-100 hover:scale-110 hover:rounded-md opacity-100 hover:opacity-100 "
-                  style={{ objectFit: "contain" }}
-                  loading="lazy"
-                  src={data?.thumb}
-                  height={200}
-                  width={200}
-                  alt={""}
-                />
-              )}
-            </div>
-          </div>
-          <div className="pl-3 pt-3">
-            <div className="pt-10"></div>
-            <h1 className="text-sm lg:text-xl text-white ">
-              Title:{" "}
-              <span className="text-white  text-md lg:text-2xl font-bold ">
-                {data.file_name}
-              </span>
-            </h1>
-            <h1 className="text-sm lg:text-xl text-white ">
-              File Size:{" "}
-              <span className="text-white text-md lg:text-2xl font-bold ">
-                {data.size}
-              </span>
-            </h1>
-          </div>
-          <Link
-            href={data?.direct_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="py-0 text-xl font-bold text-white self-center"
-          >
-            <Button
-              variant="default"
-              className="py-0 bg-blue-700 mt-3 text-xl font-bold"
-            >
-              {" "}
-              Download
-            </Button>
-          </Link>
-        </main>
-      )}
     </div>
   );
 }
