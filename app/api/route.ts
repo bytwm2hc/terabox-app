@@ -189,8 +189,8 @@ export async function GET(req: NextRequest) {
       sizebytes: Number(file.size) || 0,
     };
 
-    // Put successful result to cache (10分鐘)
-    await putToCache(cacheKey.url, result, 60 * 10);
+    // Put successful result to cache (15 minutes)
+    await putToCache(cacheKey.url, result, 60 * 15);
 
     if (searchParams.has("proxy")) return proxyDownload(req, direct_link);
     if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
