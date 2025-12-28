@@ -78,9 +78,10 @@ function extractJsToken(html: string): string | null {
 
 /* ================= Cloudflare Cache Helper ================= */
 async function getFromCache(key: string): Promise<any | null> {
-  if (typeof caches !== "undefined") {
+  if (typeof caches !== "undefined" && "default" in caches) {
     try {
-      const cache = caches?.default;
+      // @ts-ignore
+      const cache = caches.default;
       const cachedResp = await cache.match(key);
       if (!cachedResp) return null;
       return await cachedResp.json();
@@ -88,18 +89,27 @@ async function getFromCache(key: string): Promise<any | null> {
       return null;
     }
   } else {
+    // 本地或非 Cloudflare 環境，不使用快取
     return null;
   }
 }
 
 async function putToCache(key: string, value: any, ttl = 60 * 5) {
-  if (typeof caches !== "undefined") {
-    const cache = caches?.default;
-    const resp = new Response(JSON.stringify(value), {
-      headers: { "Content-Type": "application/json" }
-   });
-    resp.headers.set("Cache-Control", `public, max-age=${ttl}`);
-    await cache.put(key, resp);
+  if (typeof caches !== "undefined" && "default" in caches) {
+    try {
+      // @ts-ignore
+      const cache = caches.default;
+      const resp = new Response(JSON.stringify(value), {
+        headers: { "Content-Type": "application/json" }
+      });
+      resp.headers.set("Cache-Control", `public, max-age=${ttl}`);
+      await cache.put(key, resp);
+    } catch {
+      // 忽略快取錯誤
+    }
+  } else {
+    // 本地或非 Cloudflare 環境，不存快取
+    return;
   }
 }
 
