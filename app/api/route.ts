@@ -78,10 +78,9 @@ function extractJsToken(html: string): string | null {
 
 /* ================= Cloudflare Cache Helper ================= */
 async function getFromCache(key: string): Promise<any | null> {
-  if (typeof caches !== "undefined" && "default" in caches) {
+  if (typeof caches !== "undefined" && (caches as any).default) {
     try {
-      // @ts-expect-error: caches.default 只在 Cloudflare Edge Runtime 存在
-      const cache = caches.default;
+      const cache = (caches as any).default as Cache;
       const cachedResp = await cache.match(key);
       if (!cachedResp) return null;
       return await cachedResp.json();
@@ -89,16 +88,14 @@ async function getFromCache(key: string): Promise<any | null> {
       return null;
     }
   } else {
-    // 本地或非 Cloudflare 環境，不使用快取
     return null;
   }
 }
 
 async function putToCache(key: string, value: any, ttl = 60 * 5) {
-  if (typeof caches !== "undefined" && "default" in caches) {
+  if (typeof caches !== "undefined" && (caches as any).default) {
     try {
-      // @ts-expect-error: caches.default 只在 Cloudflare Edge Runtime 存在
-      const cache = caches.default;
+      const cache = (caches as any).default as Cache;
       const resp = new Response(JSON.stringify(value), {
         headers: { "Content-Type": "application/json" }
       });
@@ -108,7 +105,6 @@ async function putToCache(key: string, value: any, ttl = 60 * 5) {
       // 忽略快取錯誤
     }
   } else {
-    // 本地或非 Cloudflare 環境，不存快取
     return;
   }
 }
