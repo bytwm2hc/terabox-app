@@ -137,7 +137,9 @@ export async function GET(req: NextRequest) {
     }
 
     const headers = new Headers({
-      "User-Agent": process.env.USER_AGENT ?? "Mozilla/5.0",
+      "User-Agent": process.env.USER_AGENT ?? "netdisk;P2SP;1.0.0.10",
+      "Accept": "*/*",
+      "Accept-Language": "zh-CN",
     });
     if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
 
@@ -210,7 +212,7 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
-  headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0");
+  headers.set("User-Agent", process.env.USER_AGENT ?? "netdisk;P2SP;1.0.0.10");
 
   const upstream = await fetch(url, { headers });
   const resHeaders = new Headers();
