@@ -15,11 +15,13 @@ type ShareListResponse = {
 };
 
 /* ================= Utils ================= */
-function getFormattedSize(bytes?: number) {
-  if (!Number.isFinite(bytes)) return "Unknown";
-  if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
-  if (bytes >= 1024) return (bytes / 1024).toFixed(2) + " KB";
-  return bytes + " bytes";
+function getFormattedSize(bytes: number | undefined): string {
+  const b = typeof bytes === "number" ? bytes : NaN;
+
+  if (!Number.isFinite(b)) return "Unknown";
+  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(2) + " MB";
+  if (b >= 1024) return (b / 1024).toFixed(2) + " KB";
+  return b + " bytes";
 }
 
 function findBetween(str: string, start: string, end: string) {
