@@ -33,7 +33,7 @@ function findBetween(str: string, start: string, end: string) {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Expose-Headers": "*",
 };
 
 async function fetchFollowWithCookies(
