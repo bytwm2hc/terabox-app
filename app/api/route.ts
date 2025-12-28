@@ -80,7 +80,7 @@ function extractJsToken(html: string): string | null {
 async function getFromCache(key: string): Promise<any | null> {
   if (typeof caches !== "undefined") {
     try {
-      const cache = caches.default;
+      const cache = caches?.default;
       const cachedResp = await cache.match(key);
       if (!cachedResp) return null;
       return await cachedResp.json();
@@ -94,7 +94,7 @@ async function getFromCache(key: string): Promise<any | null> {
 
 async function putToCache(key: string, value: any, ttl = 60 * 5) {
   if (typeof caches !== "undefined") {
-    const cache = caches.default;
+    const cache = caches?.default;
     const resp = new Response(JSON.stringify(value), {
       headers: { "Content-Type": "application/json" }
    });
