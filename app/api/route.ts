@@ -15,21 +15,11 @@ type ShareListResponse = {
 };
 
 /* ================= Utils ================= */
-function getFormattedSize(bytes: number | undefined): string {
-  const b = typeof bytes === "number" ? bytes : NaN;
-
-  if (!Number.isFinite(b)) return "Unknown";
-  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(2) + " MB";
-  if (b >= 1024) return (b / 1024).toFixed(2) + " KB";
-  return b + " bytes";
-}
-
-function findBetween(str: string, start: string, end: string) {
-  const s = str.indexOf(start);
-  if (s === -1) return null;
-  const e = str.indexOf(end, s + start.length);
-  if (e === -1) return null;
-  return str.substring(s + start.length, e);
+function getFormattedSize(bytes?: number): string {
+  if (!Number.isFinite(bytes ?? NaN)) return "Unknown";
+  if ((bytes ?? 0) >= 1024 * 1024) return ((bytes ?? 0) / 1024 / 1024).toFixed(2) + " MB";
+  if ((bytes ?? 0) >= 1024) return ((bytes ?? 0) / 1024).toFixed(2) + " KB";
+  return (bytes ?? 0) + " bytes";
 }
 
 const corsHeaders = {
@@ -38,21 +28,16 @@ const corsHeaders = {
   "Access-Control-Expose-Headers": "*",
 };
 
-async function fetchFollowWithCookies(
-  url: string,
-  baseHeaders: Headers,
-  maxRedirects = 10
-): Promise<Response> {
-  if (!url) throw new Error("Invalid URL");
-
+/* ================= Fetch with cookies ================= */
+async function fetchFollowWithCookies(url: string, headers: Headers, method: string = "GET", maxRedirects = 10): Promise<Response> {
   let current = url;
-  let cookieStore = baseHeaders.get("Cookie") ?? "";
+  let cookieStore = headers.get("Cookie") ?? "";
 
   for (let i = 0; i < maxRedirects; i++) {
-    const headers = new Headers(baseHeaders);
-    if (cookieStore) headers.set("Cookie", cookieStore);
+    const hdrs = new Headers(headers);
+    if (cookieStore) hdrs.set("Cookie", cookieStore);
 
-    const res = await fetch(current, { headers, redirect: "manual" });
+    const res = await fetch(current, { headers: hdrs, method: method, redirect: "manual" });
 
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
@@ -63,18 +48,32 @@ async function fetchFollowWithCookies(
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
       if (!location) return res;
-
-      current = location.startsWith("http")
-        ? location
-        : new URL(location, current).href;
-
+      current = location.startsWith("http") ? location : new URL(location, current).href;
       continue;
     }
-
     return res;
   }
-
   throw new Error("Too many redirects");
+}
+
+/* ================= Extract jsToken ================= */
+function extractJsToken(html: string): string | null {
+  const match = html.match(/window\.__INITIAL_STATE__=({.*?});/);
+  if (!match) return null;
+
+  try {
+    const state = JSON.parse(match[1]);
+    let raw = state.jsToken;
+    raw = decodeURIComponent(raw);
+    if (!raw) return null;
+
+    // 抓出 fn("TOKEN") 內的 TOKEN
+    const tokenMatch = raw.match(/fn\("([^"]+)"\)/);
+    if (tokenMatch) return tokenMatch[1];
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /* ================= GET ================= */
@@ -82,123 +81,88 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const shareUrl = searchParams.get("data");
-
-    if (!shareUrl) {
-      return NextResponse.json({ error: "Missing data" }, { status: 400, headers: corsHeaders });
-    }
+    if (!shareUrl) return NextResponse.json({ error: "Missing data" }, { status: 400, headers: corsHeaders });
 
     const headers = new Headers({
-      "User-Agent":
-        process.env.USER_AGENT ??
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      Referer: "https://www.1024tera.com/",
+      "User-Agent": process.env.USER_AGENT ?? "Mozilla/5.0",
+      //Host: "www.1024tera.com",
     });
+    if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
 
-    if (process.env.COOKIE) {
-      headers.set("Cookie", process.env.COOKIE);
-    }
-
-    /* Step 1：抓分享頁 */
+    /* Step 1：抓分享頁 HTML */
     const pageRes = await fetchFollowWithCookies(shareUrl, headers);
     const html = await pageRes.text();
 
-    /* Step 2：取得 shorturl（新版是路徑，不是 ?surl=） */
+    const jsToken = extractJsToken(html);
+
+    /* Step 2：取得 surl */
     const pageURL = new URL(pageRes.url);
-    const pathMatch = pageURL.pathname.match(/^\/s\/([^/?]+)/);
-    const shorturl = pathMatch?.[1];
+    const surl = pageURL.searchParams.get("surl") || pageURL.pathname.match(/^\/s\/([^/?]+)/)?.[1];
+    if (!surl) return NextResponse.json({ error: "Missing surl" }, { status: 400, headers: corsHeaders });
 
-    if (!shorturl) {
-      return NextResponse.json({ error: "Missing shorturl" }, { status: 400, headers: corsHeaders });
-    }
+    if (!jsToken) return NextResponse.json({ error: "Missing jsToken" }, { status: 400, headers: corsHeaders });
 
-    /* Step 3：jsToken */
-    const jsToken =
-      findBetween(html, 'fn("', '")') ||
-      findBetween(html, "fn%28%22", "%22%29") ||
-      findBetween(html, 'jsToken":"', '"');
+    /* Step 3：List API */
+    const apiUrl = `https://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${encodeURIComponent(jsToken)}&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
-    if (!jsToken) {
-      return NextResponse.json({ error: "Missing jsToken" }, { status: 400, headers: corsHeaders });
-    }
-
-    /* Step 4：List API */
-    const api =
-      `https://www.1024tera.com/share/list?` +
-      `app_id=250528&web=1&channel=dubox&clienttype=0` +
-      `&jsToken=${encodeURIComponent(jsToken)}` +
-      `&page=1&num=20&order=asc&shorturl=${shorturl}&root=1`;
-
-    const listRes = await fetchFollowWithCookies(api, headers);
+    headers.set("Referer", "https://www.1024tera.com/");
+    headers.set("X-Requested-With", "XMLHttpRequest");
+    const listRes = await fetchFollowWithCookies(apiUrl, headers);
     const json = (await listRes.json()) as ShareListResponse;
 
     const file = json?.list?.[0];
-    if (!file || !file.dlink) {
-      return NextResponse.json({ error: "File not found" }, { status: 400, headers: corsHeaders });
-    }
+    if (!file || !file.dlink) return NextResponse.json({ error: "File not found" }, { status: 400, headers: corsHeaders });
 
-    /* Step 5：Direct link */
-    const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
+    /* Step 4：Direct link */
+    headers.delete("Referer");
+    headers.delete("Host");
+    headers.delete("X-Requested-With");
+    const dlinkRes = await fetchFollowWithCookies(file.dlink, headers, "HEAD");
     const direct_link = dlinkRes.url;
-
-    if (!direct_link) {
-      return NextResponse.json({ error: "Direct link failed" }, { status: 500, headers: corsHeaders });
-    }
+    if (!direct_link) return NextResponse.json({ error: "Direct link failed" }, { status: 500, headers: corsHeaders });
 
     /* Proxy download */
-    if (searchParams.has("proxy")) {
-      return proxyDownload(req, direct_link);
-    }
+    if (searchParams.has("proxy")) return proxyDownload(req, direct_link);
 
     /* Redirect */
-    if (searchParams.has("download")) {
-      return NextResponse.redirect(direct_link, 302);
-    }
+    if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
 
-    return NextResponse.json(
-      {
-        file_name: file.server_filename ?? "",
-        link: file.dlink,
-        direct_link,
-        thumb: file.thumbs?.url3 ?? "",
-        size: getFormattedSize(Number(file.size)),
-        sizebytes: Number(file.size) || 0,
-      },
-      { headers: corsHeaders }
-    );
+    return NextResponse.json({
+      file_name: file.server_filename ?? "",
+      link: file.dlink,
+      direct_link,
+      thumb: file.thumbs?.url3 ?? "",
+      size: getFormattedSize(Number(file.size)),
+      sizebytes: Number(file.size) || 0,
+    }, { headers: corsHeaders });
+
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Unknown Error" },
-      { status: 500, headers: corsHeaders }
-    );
+    return NextResponse.json({ error: e?.message ?? "Unknown Error" }, { status: 500, headers: corsHeaders });
   }
 }
 
+/* ================= OPTIONS ================= */
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders });
 }
 
-/* ================= proxy ================= */
+/* ================= Proxy download ================= */
 async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   const headers = new Headers();
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
-  headers.set("Referer", "https://www.1024tera.com/");
-  headers.set("User-Agent", "Mozilla/5.0");
+  //headers.set("Referer", "https://www.1024tera.com/");
+  headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0");
 
   const upstream = await fetch(url, { headers });
-
   const resHeaders = new Headers();
   upstream.headers.forEach((v, k) => {
-    if (k.startsWith("content") || k === "accept-ranges") {
-      resHeaders.set(k, v);
-    }
+    if (k.startsWith("content") || k === "accept-ranges") resHeaders.set(k, v);
   });
-
   resHeaders.set("Access-Control-Allow-Origin", "*");
+  resHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  resHeaders.set("Access-Control-Expose-Headers", "*");
 
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: resHeaders,
-  });
+  return new Response(upstream.body, { status: upstream.status, headers: resHeaders });
 }
