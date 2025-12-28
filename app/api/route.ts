@@ -76,12 +76,43 @@ function extractJsToken(html: string): string | null {
   }
 }
 
+/* ================= Cloudflare Cache Helper ================= */
+async function getFromCache(key: string): Promise<any | null> {
+  if (typeof caches !== "undefined") {
+    try {
+      const cache = caches.default;
+      const cachedResp = await cache.match(key);
+      if (!cachedResp) return null;
+      return await cachedResp.json();
+    } catch {
+      return null;
+    }
+  } else {
+    return null;
+  }
+}
+
+async function putToCache(key: string, value: any, ttl = 60 * 5) {
+  if (typeof caches !== "undefined") {
+    const cache = caches.default;
+    const resp = new Response(JSON.stringify(value), {
+      headers: { "Content-Type": "application/json" }
+   });
+    resp.headers.set("Cache-Control", `public, max-age=${ttl}`);
+    await cache.put(key, resp);
+  }
+}
+
 /* ================= GET ================= */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const shareUrl = searchParams.get("data");
     if (!shareUrl) return NextResponse.json({ error: "Missing data" }, { status: 400, headers: corsHeaders });
+
+    const cacheKey = new Request(shareUrl);
+    const cached = await getFromCache(cacheKey.url);
+    if (cached) return NextResponse.json(cached, { headers: corsHeaders });
 
     const headers = new Headers({
       "User-Agent": process.env.USER_AGENT ?? "Mozilla/5.0",
@@ -121,21 +152,22 @@ export async function GET(req: NextRequest) {
     const direct_link = dlinkRes.url;
     if (!direct_link) return NextResponse.json({ error: "Direct link failed" }, { status: 500, headers: corsHeaders });
 
-    /* Proxy download */
-    if (searchParams.has("proxy")) return proxyDownload(req, direct_link);
-
-    /* Redirect */
-    if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
-
-    return NextResponse.json({
+    const result = {
       file_name: file.server_filename ?? "",
       link: file.dlink,
       direct_link,
       thumb: file.thumbs?.url3 ?? "",
       size: getFormattedSize(Number(file.size)),
       sizebytes: Number(file.size) || 0,
-    }, { headers: corsHeaders });
+    };
 
+    // Put successful result to cache
+    await putToCache(cacheKey.url, result, 60 * 10); // 10分鐘快取
+
+    if (searchParams.has("proxy")) return proxyDownload(req, direct_link);
+    if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
+
+    return NextResponse.json(result, { headers: corsHeaders });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown Error" }, { status: 500, headers: corsHeaders });
   }
