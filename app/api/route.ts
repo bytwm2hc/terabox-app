@@ -10,7 +10,9 @@ type TeraBoxFile = {
   thumbs?: { url3?: string };
 };
 
-type ShareListResponse = { list?: TeraBoxFile[] };
+type ShareListResponse = {
+  list?: TeraBoxFile[];
+};
 
 /* ================= Utils ================= */
 function getFormattedSize(bytes?: number) {
@@ -66,6 +68,7 @@ async function fetchFollowWithCookies(
 
       continue;
     }
+
     return res;
   }
 
@@ -76,8 +79,9 @@ async function fetchFollowWithCookies(
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const link = searchParams.get("data");
-    if (!link) {
+    const shareUrl = searchParams.get("data");
+
+    if (!shareUrl) {
       return NextResponse.json({ error: "Missing data" }, { status: 400, headers: corsHeaders });
     }
 
@@ -85,23 +89,27 @@ export async function GET(req: NextRequest) {
       "User-Agent":
         process.env.USER_AGENT ??
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      Referer: "https://www.1024terabox.com/",
+      Referer: "https://www.1024tera.com/",
     });
 
     if (process.env.COOKIE) {
       headers.set("Cookie", process.env.COOKIE);
     }
 
-    /* Step 1：分享頁 */
-    const pageRes = await fetchFollowWithCookies(link, headers);
+    /* Step 1：抓分享頁 */
+    const pageRes = await fetchFollowWithCookies(shareUrl, headers);
     const html = await pageRes.text();
 
-    const finalUrl = pageRes.url ? new URL(pageRes.url) : null;
-    const surl = finalUrl?.searchParams.get("surl");
-    if (!surl) {
-      return NextResponse.json({ error: "Missing surl" }, { status: 400, headers: corsHeaders });
+    /* Step 2：取得 shorturl（新版是路徑，不是 ?surl=） */
+    const pageURL = new URL(pageRes.url);
+    const pathMatch = pageURL.pathname.match(/^\/s\/([^/?]+)/);
+    const shorturl = pathMatch?.[1];
+
+    if (!shorturl) {
+      return NextResponse.json({ error: "Missing shorturl" }, { status: 400, headers: corsHeaders });
     }
 
+    /* Step 3：jsToken */
     const jsToken =
       findBetween(html, 'fn("', '")') ||
       findBetween(html, "fn%28%22", "%22%29") ||
@@ -111,32 +119,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing jsToken" }, { status: 400, headers: corsHeaders });
     }
 
-    /* Step 2：List API */
-    headers.set("Referer", pageRes.url);
-
+    /* Step 4：List API */
     const api =
       `https://www.1024tera.com/share/list?` +
       `app_id=250528&web=1&channel=dubox&clienttype=0` +
       `&jsToken=${encodeURIComponent(jsToken)}` +
-      `&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
+      `&page=1&num=20&order=asc&shorturl=${shorturl}&root=1`;
 
     const listRes = await fetchFollowWithCookies(api, headers);
     const json = (await listRes.json()) as ShareListResponse;
 
     const file = json?.list?.[0];
     if (!file || !file.dlink) {
-      return NextResponse.json({ error: "Invalid file data" }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: "File not found" }, { status: 400, headers: corsHeaders });
     }
 
-    /* Step 3：Direct link */
+    /* Step 5：Direct link */
     const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
-    const direct_link = typeof dlinkRes.url === "string" ? dlinkRes.url : null;
+    const direct_link = dlinkRes.url;
 
     if (!direct_link) {
       return NextResponse.json({ error: "Direct link failed" }, { status: 500, headers: corsHeaders });
     }
 
-    /* Proxy */
+    /* Proxy download */
     if (searchParams.has("proxy")) {
       return proxyDownload(req, direct_link);
     }
@@ -171,10 +177,6 @@ export async function OPTIONS() {
 
 /* ================= proxy ================= */
 async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
-  if (!url) {
-    return new Response("Invalid URL", { status: 400 });
-  }
-
   const headers = new Headers();
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
