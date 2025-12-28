@@ -14,6 +14,9 @@ type ShareListResponse = { list: TeraBoxFile[] };
 
 /* ================= Utils ================= */
 function getFormattedSize(bytes: number) {
+  if (bytes === undefined || bytes === null) {
+    return "Unknown size";
+  }
   if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + " MB";
   if (bytes >= 1024) return (bytes / 1024).toFixed(2) + " KB";
   return bytes + " bytes";
@@ -97,9 +100,12 @@ export async function GET(req: NextRequest) {
 
     const file = json.list[0];
 
+    if (!file) return NextResponse.json({ error: "File data not found" }, { status: 400, headers: corsHeaders });
+    if (!file.size) return NextResponse.json({ error: "File size not available" }, { status: 400, headers: corsHeaders });
+
     /* ===== 獲取高速 Direct Link ===== */
     const dlinkRes = await fetchFollowWithCookies(file.dlink, headers);
-    const direct_link = dlinkRes.url; 
+    const direct_link = dlinkRes.url;
 
     /* ===== 判斷是否使用代理下載 ===== */
     if (searchParams.has("proxy")) {
