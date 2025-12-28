@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     const headers = new Headers({
       "User-Agent": process.env["USER_AGENT"] ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      "Referer": "https://1024terabox.com/",
+      "Referer": "https://www.1024terabox.com/",
     });
     if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
 
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     /* Step 2：List API */
     headers.set("Referer", pageRes.url);
-    const api = `https://www.terabox.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${jsToken}&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
+    const api = `https://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${jsToken}&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
 
     const listRes = await fetchFollowWithCookies(api, headers);
     const json = (await listRes.json()) as ShareListResponse;
@@ -140,7 +140,7 @@ async function proxyDownload(req: NextRequest, url: string, ctx?: any): Promise<
   if (range) headers.set("Range", range);
 
   // 增加基本偽裝防止 403
-  headers.set("Referer", "https://www.terabox.com/");
+  headers.set("Referer", "https://www.1024tera.com/");
   headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
   const upstream = await fetch(url, { headers });
