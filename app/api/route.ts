@@ -222,6 +222,7 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
     //if (k.startsWith("content") || k === "accept-ranges") resHeaders.set(k, v);
     resHeaders.set(k, v);
   });
+  resHeaders.delete('content-length');
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   resHeaders.set("Access-Control-Expose-Headers", "*");
