@@ -209,17 +209,18 @@ export async function OPTIONS() {
 /* ================= Proxy download ================= */
 async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   const headers = new Headers();
-  const range = req.headers.get("range");
-  if (range) headers.set("Range", range);
+  //const range = req.headers.get("range");
+  //if (range) headers.set("Range", range);
 
   headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36");
-  headers.set("Accept-Encoding", "gzip, deflate, br, zstd");
-  headers.set("Accept-Language", "en-US,en;q=0.9");
+  headers.set("Accept-Encoding", "identity");
+  //headers.set("Accept-Language", "en-US,en;q=0.9");
 
   const upstream = await fetch(url, { headers });
   const resHeaders = new Headers();
   upstream.headers.forEach((v, k) => {
-    if (k.startsWith("content") || k === "accept-ranges") resHeaders.set(k, v);
+    //if (k.startsWith("content") || k === "accept-ranges") resHeaders.set(k, v);
+    resHeaders.set(k, v);
   });
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
