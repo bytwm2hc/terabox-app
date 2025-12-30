@@ -203,45 +203,26 @@ export async function GET(req: NextRequest) {
 
 /* ================= OPTIONS ================= */
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new NextResponse(null, { headers: corsHeaders });
 }
 
 /* ================= Proxy download ================= */
 async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   const headers = new Headers();
-
-  headers.set("User-Agent", "Mozilla/5.0");
-  headers.set("Accept-Encoding", "identity");
-
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
+  headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36");
+
   const upstream = await fetch(url, { headers });
-
   const resHeaders = new Headers();
-
-  [
-    "content-type",
-    "content-range",
-    "accept-ranges",
-    "etag",
-    "last-modified",
-    "cache-control",
-  ].forEach((h) => {
-    const v = upstream.headers.get(h);
-    if (v) resHeaders.set(h, v);
+  upstream.headers.forEach((v, k) => {
+    //if (k.startsWith("content") || k === "accept-ranges") resHeaders.set(k, v);
+    resHeaders.set(k, v);
   });
-
-  // CORS（⚠️ 白名單）
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  resHeaders.set(
-    "Access-Control-Expose-Headers",
-    "Content-Type, Content-Range, Accept-Ranges, ETag, Last-Modified"
-  );
+  resHeaders.set("Access-Control-Expose-Headers", "*");
 
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: resHeaders,
-  });
+  return new NextResponse(upstream.body, { status: upstream.status, headers: resHeaders });
 }
