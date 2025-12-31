@@ -138,8 +138,8 @@ export async function GET(req: NextRequest) {
 
     const headers = new Headers({
       "User-Agent": process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
       "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "no-cache",
     });
     if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
 
@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     /* Step 3：List API */
     const apiUrl = `https://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${encodeURIComponent(
       jsToken
-    )}&page=1&num=20&order=asc&shorturl=${surl}&root=1`;
+    )}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
     headers.set("Referer", "https://www.1024tera.com/");
     headers.set("X-Requested-With", "XMLHttpRequest");
