@@ -212,7 +212,7 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   const range = req.headers.get("range");
   if (range) headers.set("Range", range);
 
-  headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36");
+  //headers.set("User-Agent", process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36");
 
   const upstream = await fetch(url, { headers });
   const resHeaders = new Headers();
