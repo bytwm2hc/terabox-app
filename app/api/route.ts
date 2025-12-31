@@ -36,6 +36,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Expose-Headers": "*",
+  "Cache-Control": "no-store",
 };
 
 /* ================= Fetch with cookies ================= */
@@ -223,6 +224,7 @@ async function proxyDownload(req: NextRequest, url: string): Promise<Response> {
   resHeaders.set("Access-Control-Allow-Origin", "*");
   resHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   resHeaders.set("Access-Control-Expose-Headers", "*");
+  resHeaders.set("Cache-Control", "no-store");
 
   return new NextResponse(upstream.body, { status: upstream.status, headers: resHeaders });
 }
