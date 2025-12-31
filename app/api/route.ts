@@ -129,12 +129,12 @@ export async function GET(req: NextRequest) {
 
     const cacheKey = new Request(shareUrl);
     const cached = await getFromCache(cacheKey.url);
-    if (cached && false) {
-      // 快取 HIT
-      if (searchParams.has("proxy")) return proxyDownload(req, cached.direct_link);
-      if (searchParams.has("download")) return NextResponse.redirect(cached.direct_link, 302);
-      return NextResponse.json(cached, { headers: corsHeaders });
-    }
+    //if (cached) {
+    //  // 快取 HIT
+    //  if (searchParams.has("proxy")) return proxyDownload(req, cached.direct_link);
+    //  if (searchParams.has("download")) return NextResponse.redirect(cached.direct_link, 302);
+    //  return NextResponse.json(cached, { headers: corsHeaders });
+    //}
 
     const headers = new Headers({
       "User-Agent": process.env.USER_AGENT ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Put successful result to cache (15 minutes)
-    // await putToCache(cacheKey.url, result, 60 * 15);
+    //await putToCache(cacheKey.url, result, 60 * 15);
 
     if (searchParams.has("proxy")) return proxyDownload(req, direct_link);
     if (searchParams.has("download")) return NextResponse.redirect(direct_link, 302);
