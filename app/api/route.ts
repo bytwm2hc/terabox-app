@@ -39,20 +39,26 @@ function getFormattedSize(bytes?: number): string {
 }
 
 function extractJsToken(html: string): string | null {
-  const match = html.match(/window\.__INITIAL_STATE__=({.*?});/);
-  if (!match) return null;
+  // 1️⃣ 找出 encodeURIComponent(...) 裡的 payload
+  const encodedMatch = html.match(
+    /decodeURIComponent\(\s*`([^`]+)`\s*\)/
+  );
+  if (!encodedMatch) return null;
 
+  // 2️⃣ decode
+  let decoded: string;
   try {
-    const state = JSON.parse(match[1]);
-    let raw = state.jsToken;
-    raw = decodeURIComponent(raw);
-    if (!raw) return null;
-
-    const tokenMatch = raw.match(/fn\("([^"]+)"\)/);
-    return tokenMatch?.[1] ?? null;
+    decoded = decodeURIComponent(encodedMatch[1]);
   } catch {
     return null;
   }
+
+  // 3️⃣ 抓 token（hex / 高熵字串）
+  const tokenMatch = decoded.match(
+    /["']([A-F0-9]{32,})["']/
+  );
+
+  return tokenMatch?.[1] ?? null;
 }
 
 async function fetchFollowWithCookies(
@@ -115,6 +121,7 @@ export async function GET(req: NextRequest) {
     const html = await pageRes.text();
 
     const jsToken = extractJsToken(html);
+    console.log(jsToken);
     if (!jsToken)
       return NextResponse.json(
         { error: "Missing jsToken" },
@@ -133,11 +140,11 @@ export async function GET(req: NextRequest) {
       );
 
     /* Step 3：List API */
-    const apiUrl = `https://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${encodeURIComponent(
+    const apiUrl = `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${encodeURIComponent(
       jsToken
     )}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
-    headers.set("Referer", "https://www.1024tera.com/");
+    headers.set("Referer", "http://www.terabox.app/");
     headers.set("X-Requested-With", "XMLHttpRequest");
     const listRes = await fetchFollowWithCookies(apiUrl, headers);
     const json = (await listRes.json()) as ShareListResponse;
