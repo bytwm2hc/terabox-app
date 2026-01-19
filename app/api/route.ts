@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+//export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /* ================= Type Definitions ================= */
@@ -63,39 +63,57 @@ function extractJsToken(html: string): string | null {
 
 async function fetchFollowWithCookies(
   url: string,
-  headers: Headers,
+  baseHeaders: Headers,
   method: string = "GET",
-  maxRedirects = 10
+  maxRedirects = 5
 ): Promise<Response> {
-  let current = url;
-  let cookieStore = headers.get("Cookie") ?? "";
+  let currentUrl = url;
+  let cookieStore = baseHeaders.get("Cookie") ?? "";
 
   for (let i = 0; i < maxRedirects; i++) {
-    const hdrs = new Headers(headers);
-    if (cookieStore) hdrs.set("Cookie", cookieStore);
+    // ⚠️ 每一跳都 new Headers（Edge-safe）
+    const headers = new Headers();
 
-    const res = await fetch(current, {
-      headers: hdrs,
+    baseHeaders.forEach((v, k) => {
+      if (k.toLowerCase() !== "cookie") {
+        headers.set(k, v);
+      }
+    });
+
+    if (cookieStore) {
+      headers.set("Cookie", cookieStore);
+    }
+
+    const res = await fetch(currentUrl, {
       method,
+      headers,
       redirect: "manual",
     });
 
+    // ⚠️ Edge 有時拿不到 set-cookie，要容錯
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
       const cookiePair = setCookie.split(";")[0];
-      cookieStore += (cookieStore ? "; " : "") + cookiePair;
+      if (!cookieStore.includes(cookiePair)) {
+        cookieStore += (cookieStore ? "; " : "") + cookiePair;
+      }
     }
 
+    // redirect handling
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
       if (!location) return res;
-      current = location.startsWith("http")
+
+      currentUrl = location.startsWith("http")
         ? location
-        : new URL(location, current).href;
+        : new URL(location, currentUrl).href;
+
       continue;
     }
+
     return res;
   }
+
   throw new Error("Too many redirects");
 }
 
@@ -121,7 +139,6 @@ export async function GET(req: NextRequest) {
     const html = await pageRes.text();
 
     const jsToken = extractJsToken(html);
-    console.log(jsToken);
     if (!jsToken)
       return NextResponse.json(
         { error: "Missing jsToken" },
@@ -162,8 +179,13 @@ export async function GET(req: NextRequest) {
     const dlinkRes = await fetchFollowWithCookies(
       file.dlink,
       headers,
-      "HEAD"
+      "HEAD",
+      3
     );
+    // ⚠️ 立刻取消 body（避免 Edge 下載檔案）
+    try {
+        dlinkRes.body?.cancel();
+    } catch {}
     const direct_link = dlinkRes.url;
     if (!direct_link)
       return NextResponse.json(
