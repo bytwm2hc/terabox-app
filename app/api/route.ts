@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-//export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-/* ================= Type Definitions ================= */
+/* ================= Types ================= */
 type TeraBoxFile = {
   dlink?: string;
   server_filename?: string;
@@ -24,9 +23,45 @@ type JsonResult = {
   sizebytes: number;
 };
 
+/* ================= Config ================= */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
 };
+
+const CACHE_TTL = 25 * 60 * 1000; // 25 min
+
+const cacheHeaders = {
+  ...corsHeaders,
+  "Cache-Control":
+    "public, max-age=0, s-maxage=1800, stale-while-revalidate=3600",
+};
+
+/* ================= Memory Cache ================= */
+type CacheEntry = {
+  expire: number;
+  data: JsonResult;
+};
+
+const globalCache =
+  (globalThis as any).__TERABOX_CACHE__ ??
+  ((globalThis as any).__TERABOX_CACHE__ = new Map<string, CacheEntry>());
+
+function getCache(key: string): JsonResult | null {
+  const hit = globalCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expire) {
+    globalCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function setCache(key: string, data: JsonResult) {
+  globalCache.set(key, {
+    data,
+    expire: Date.now() + CACHE_TTL,
+  });
+}
 
 /* ================= Utils ================= */
 function getFormattedSize(bytes?: number): string {
@@ -39,13 +74,11 @@ function getFormattedSize(bytes?: number): string {
 }
 
 function extractJsToken(html: string): string | null {
-  // 1️⃣ 找出 encodeURIComponent(...) 裡的 payload
   const encodedMatch = html.match(
     /decodeURIComponent\(\s*`([^`]+)`\s*\)/
   );
   if (!encodedMatch) return null;
 
-  // 2️⃣ decode
   let decoded: string;
   try {
     decoded = decodeURIComponent(encodedMatch[1]);
@@ -53,36 +86,25 @@ function extractJsToken(html: string): string | null {
     return null;
   }
 
-  // 3️⃣ 抓 token（hex / 高熵字串）
-  const tokenMatch = decoded.match(
-    /["']([A-F0-9]{32,})["']/
-  );
-
+  const tokenMatch = decoded.match(/["']([A-F0-9]{32,})["']/);
   return tokenMatch?.[1] ?? null;
 }
 
 async function fetchFollowWithCookies(
   url: string,
   baseHeaders: Headers,
-  method: string = "GET",
+  method = "GET",
   maxRedirects = 5
 ): Promise<Response> {
   let currentUrl = url;
   let cookieStore = baseHeaders.get("Cookie") ?? "";
 
   for (let i = 0; i < maxRedirects; i++) {
-    // ⚠️ 每一跳都 new Headers（Edge-safe）
     const headers = new Headers();
-
     baseHeaders.forEach((v, k) => {
-      if (k.toLowerCase() !== "cookie") {
-        headers.set(k, v);
-      }
+      if (k.toLowerCase() !== "cookie") headers.set(k, v);
     });
-
-    if (cookieStore) {
-      headers.set("Cookie", cookieStore);
-    }
+    if (cookieStore) headers.set("Cookie", cookieStore);
 
     const res = await fetch(currentUrl, {
       method,
@@ -90,24 +112,20 @@ async function fetchFollowWithCookies(
       redirect: "manual",
     });
 
-    // ⚠️ Edge 有時拿不到 set-cookie，要容錯
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
-      const cookiePair = setCookie.split(";")[0];
-      if (!cookieStore.includes(cookiePair)) {
-        cookieStore += (cookieStore ? "; " : "") + cookiePair;
+      const pair = setCookie.split(";")[0];
+      if (!cookieStore.includes(pair)) {
+        cookieStore += (cookieStore ? "; " : "") + pair;
       }
     }
 
-    // redirect handling
     if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get("location");
-      if (!location) return res;
-
-      currentUrl = location.startsWith("http")
-        ? location
-        : new URL(location, currentUrl).href;
-
+      const loc = res.headers.get("location");
+      if (!loc) return res;
+      currentUrl = loc.startsWith("http")
+        ? loc
+        : new URL(loc, currentUrl).href;
       continue;
     }
 
@@ -117,6 +135,7 @@ async function fetchFollowWithCookies(
   throw new Error("Too many redirects");
 }
 
+/* ================= Handler ================= */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -130,11 +149,11 @@ export async function GET(req: NextRequest) {
     const headers = new Headers({
       "User-Agent":
         process.env.USER_AGENT ??
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     });
     if (process.env.COOKIE) headers.set("Cookie", process.env.COOKIE);
 
-    /* Step 1：抓分享頁 HTML */
+    /* Step 1：先抓 HTML（只為了 surl + token） */
     const pageRes = await fetchFollowWithCookies(shareUrl, headers);
     const html = await pageRes.text();
 
@@ -142,55 +161,64 @@ export async function GET(req: NextRequest) {
     if (!jsToken)
       return NextResponse.json(
         { error: "Missing jsToken" },
-        { status: pageRes.status, headers: corsHeaders }
+        { status: 500, headers: corsHeaders }
       );
 
-    /* Step 2：取得 surl */
     const pageURL = new URL(pageRes.url);
     const surl =
       pageURL.searchParams.get("surl") ||
       pageURL.pathname.match(/^\/s\/([^/?]+)/)?.[1];
+
     if (!surl)
       return NextResponse.json(
         { error: "Missing surl" },
-        { status: pageRes.status, headers: corsHeaders }
+        { status: 500, headers: corsHeaders }
       );
 
-    /* Step 3：List API */
+    /* 🚀 Cache hit */
+    const cached = getCache(surl);
+    if (cached) {
+      return NextResponse.json(cached, { headers: cacheHeaders });
+    }
+
+    /* Step 2：List API */
     const apiUrl = `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=${encodeURIComponent(
       jsToken
     )}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
     headers.set("Referer", "http://www.terabox.app/");
     headers.set("X-Requested-With", "XMLHttpRequest");
+
     const listRes = await fetchFollowWithCookies(apiUrl, headers);
     const json = (await listRes.json()) as ShareListResponse;
 
     const file = json?.list?.[0];
-    if (!file || !file.dlink)
+    if (!file?.dlink)
       return NextResponse.json(
         { error: "File not found" },
-        { status: listRes.status, headers: corsHeaders }
+        { status: 404, headers: corsHeaders }
       );
 
-    /* Step 4：Direct link */
+    /* Step 3：Resolve direct link */
     headers.delete("Referer");
     headers.delete("X-Requested-With");
+
     const dlinkRes = await fetchFollowWithCookies(
       file.dlink,
       headers,
       "HEAD",
       3
     );
-    // ⚠️ 立刻取消 body（避免 Edge 下載檔案）
+
     try {
-        dlinkRes.body?.cancel();
+      dlinkRes.body?.cancel();
     } catch {}
+
     const direct_link = dlinkRes.url;
     if (!direct_link)
       return NextResponse.json(
         { error: "Direct link failed" },
-        { status: dlinkRes.status, headers: corsHeaders }
+        { status: 502, headers: corsHeaders }
       );
 
     const result: JsonResult = {
@@ -202,10 +230,13 @@ export async function GET(req: NextRequest) {
       sizebytes: Number(file.size) || 0,
     };
 
+    /* 💾 Store cache */
+    setCache(surl, result);
+
     if (searchParams.has("download"))
       return NextResponse.redirect(direct_link, 302);
 
-    return NextResponse.json(result, { headers: corsHeaders });
+    return NextResponse.json(result, { headers: cacheHeaders });
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Unknown Error" },
