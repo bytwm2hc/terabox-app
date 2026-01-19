@@ -32,8 +32,10 @@ const CACHE_TTL = 25 * 60 * 1000; // 25 min
 
 const cacheHeaders = {
   ...corsHeaders,
-  "Cache-Control":
-    "public, max-age=0, s-maxage=1800, stale-while-revalidate=3600",
+  "Cache-Control": "no-store, must-revalidate",
+  "Netlify-CDN-Cache-Control":
+    "public, durable, s-maxage=1800, stale-while-revalidate=3600",
+  "Netlify-Vary": "query",
 };
 
 /* ================= Memory Cache ================= */
