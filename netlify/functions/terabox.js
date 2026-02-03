@@ -97,8 +97,17 @@ export async function handler(event) {
     if (cached && !download)
       return {
         statusCode: 200,
-        headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" },
+        headers: { ...CORS_HEADERS, "Cache-Control": "no-cache" },
         body: JSON.stringify(cached),
+      };
+    if (cached && download)
+      return {
+        statusCode: 302,
+        headers: {
+          Location: cached.direct_link,
+          "Netlify-Vary": "query",
+        },
+        body: JSON.stringify({message: "Redirecting..."}),
       };
 
     const headers = { "User-Agent": USER_AGENT };
@@ -109,6 +118,7 @@ export async function handler(event) {
     const html = await pageRes.text();
 
     const jsToken = extractJsToken(html);
+    console.log(html);
     if (!jsToken)
       return {
         statusCode: 500,
@@ -129,7 +139,7 @@ export async function handler(event) {
 
     // Step 2：List API
     const apiUrl =
-      `https://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
+      `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
       `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=1&order=asc&shorturl=${surl}&root=1`;
 
     const apiRes = await fetchFollowCookies(apiUrl, {
@@ -166,17 +176,17 @@ export async function handler(event) {
       return {
         statusCode: 302,
         headers: {
-          "Location": direct_link,
-          "Netlify-Vary": "query"
+          Location: direct_link,
+          "Netlify-Vary": "query",
         },
-        body: "",
+        body: JSON.stringify({message: "Redirecting..."}),
       };
 
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS,
-        "Netlify-CDN-Cache-Control": "public, s-max-age=1800, durable",
-        "Netlify-Vary": "query"
+        "Netlify-CDN-Cache-Control": "public, s-max-age=28800, durable",
+        "Netlify-Vary": "query",
       },
       body: JSON.stringify(result),
     };
