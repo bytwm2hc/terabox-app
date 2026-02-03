@@ -165,13 +165,19 @@ export async function handler(event) {
     if (download)
       return {
         statusCode: 302,
-        headers: { Location: direct_link },
+        headers: {
+          "Location": direct_link,
+          "Netlify-Vary": "query"
+        },
         body: "",
       };
 
     return {
       statusCode: 200,
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, max-age=300" },
+      headers: { ...CORS_HEADERS,
+        "Netlify-CDN-Cache-Control": "public, s-max-age=1800, durable",
+        "Netlify-Vary": "query"
+      },
       body: JSON.stringify(result),
     };
   } catch (err) {
