@@ -4,9 +4,9 @@ const CORS_HEADERS = {
 
 const USER_AGENT =
   process.env.USER_AGENT ||
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-const FETCH_TIMEOUT = 5000; // 5 秒 timeout
-const MAX_REDIRECTS = 5;
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+const FETCH_TIMEOUT = 10000; // 10 秒 timeout
+const MAX_REDIRECTS = 10;
 const CACHE_TTL = 10 * 60 * 1000; // 10 分鐘
 
 const globalCache =
@@ -48,7 +48,7 @@ function extractJsToken(html) {
   }
 }
 
-async function fetchFollowCookies(url, headers, maxRedirects = MAX_REDIRECTS) {
+async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = MAX_REDIRECTS) {
   let cookieStore = headers["Cookie"] || "";
   let currentUrl = url;
 
@@ -58,6 +58,7 @@ async function fetchFollowCookies(url, headers, maxRedirects = MAX_REDIRECTS) {
 
     const res = await fetchWithTimeout(currentUrl, {
       headers: hdrs,
+      method: method,
       redirect: "manual",
     });
 
@@ -147,7 +148,7 @@ export async function handler(event) {
       };
 
     // Step 3：HEAD 確認 direct link
-    const headRes = await fetchFollowCookies(file.dlink, headers, 3);
+    const headRes = await fetchFollowCookies(file.dlink, headers, "HEAD");
     const direct_link = headRes.url;
 
     const result = {

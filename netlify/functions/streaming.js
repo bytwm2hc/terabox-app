@@ -17,7 +17,7 @@ export async function handler(event) {
   return {
     statusCode: res.status,
     headers: {
-      "Content-Type": "text/plain",
+      "Content-Type": "application/vnd.apple.mpegurl",
       "Access-Control-Allow-Origin": "*",
     },
     body,
