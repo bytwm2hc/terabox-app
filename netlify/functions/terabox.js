@@ -68,7 +68,6 @@ async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = M
       if (!cookieStore.includes(pair))
         cookieStore += (cookieStore ? "; " : "") + pair;
     }
-
     if (!(res.status >= 300 && res.status < 400)) return res;
 
     const loc = res.headers.get("location");
@@ -97,28 +96,26 @@ export async function handler(event) {
     if (cached && !download)
       return {
         statusCode: 200,
-        headers: { ...CORS_HEADERS, "Cache-Control": "no-cache" },
+        headers: { ...CORS_HEADERS },
         body: JSON.stringify(cached),
       };
-    if (cached && download)
-      return {
-        statusCode: 302,
-        headers: {
-          Location: cached.direct_link,
-          "Netlify-Vary": "query",
-        },
-        body: JSON.stringify({message: "Redirecting..."}),
-      };
 
-    const headers = { "User-Agent": USER_AGENT };
+    const headers = {
+      "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Upgrade-Insecure-Requests": "0",
+      "User-Agent": USER_AGENT,
+    };
+    
     if (process.env.COOKIE) headers["Cookie"] = process.env.COOKIE;
 
     // Step 1：抓 HTML
-    const pageRes = await fetchFollowCookies(shareUrl, headers);
+    let pageRes = await fetchFollowCookies("https://www.terabox.app/chinese/main", headers);
     const html = await pageRes.text();
 
     const jsToken = extractJsToken(html);
-    console.log(html);
     if (!jsToken)
       return {
         statusCode: 500,
@@ -126,6 +123,7 @@ export async function handler(event) {
         body: JSON.stringify({ error: "jsToken not found" }),
       };
 
+    pageRes = await fetchFollowCookies(shareUrl, headers);
     const pageURL = new URL(pageRes.url);
     const surl =
       pageURL.searchParams.get("surl") ||
@@ -139,12 +137,12 @@ export async function handler(event) {
 
     // Step 2：List API
     const apiUrl =
-      `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
-      `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=1&order=asc&shorturl=${surl}&root=1`;
+      `http://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
+      `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
     const apiRes = await fetchFollowCookies(apiUrl, {
       ...headers,
-      Referer: "https://www.terabox.app/",
+      Referer: "http://www.1024tera.com/",
       "X-Requested-With": "XMLHttpRequest",
     });
 
@@ -175,11 +173,8 @@ export async function handler(event) {
     if (download)
       return {
         statusCode: 302,
-        headers: {
-          Location: direct_link,
-          "Netlify-Vary": "query",
-        },
-        body: JSON.stringify({message: "Redirecting..."}),
+        headers: { Location: direct_link },
+        body: "",
       };
 
     return {
