@@ -28,13 +28,13 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
 };
 
-const CACHE_TTL = 25 * 60 * 1000; // 25 min
+const CACHE_TTL = 3600 * 1000; // 1 hour
 
 const cacheHeaders = {
   ...corsHeaders,
   "Cache-Control": "no-store, must-revalidate",
   "Netlify-CDN-Cache-Control":
-    "public, durable, s-maxage=1800, stale-while-revalidate=3600",
+    "public, durable, maxage=3600",
   "Netlify-Vary": "query",
 };
 
@@ -205,11 +205,10 @@ export async function GET(req: NextRequest) {
     headers.delete("Referer");
     headers.delete("X-Requested-With");
 
+    headers.set("Range", "bytes=0-0");
     const dlinkRes = await fetchFollowWithCookies(
       file.dlink,
-      headers,
-      "HEAD",
-      3
+      headers
     );
 
     try {

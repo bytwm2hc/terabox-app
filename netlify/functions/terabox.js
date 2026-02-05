@@ -169,7 +169,8 @@ export async function handler(event) {
       };
 
     // Step 3：HEAD 確認 direct link
-    const headRes = await fetchFollowCookies(file.dlink, headers, "HEAD");
+    headers.set("Range", "bytes=0-0");
+    const headRes = await fetchFollowCookies(file.dlink, headers);
     const direct_link = headRes.url;
 
     const result = {

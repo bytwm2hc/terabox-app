@@ -171,8 +171,9 @@ export async function handler(event) {
         body: JSON.stringify({ error: "File not found" }),
       };
 
-    // Step 4: HEAD 確認 direct link
-    const headRes = await fetchFollowCookies(file, headers, "HEAD");
+    // Step 4: Get direct link
+    headers.Range = "bytes=0-0";
+    const headRes = await fetchFollowCookies(file, headers);
     const direct_link = headRes.url;
 
     const result = {
