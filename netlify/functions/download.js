@@ -93,7 +93,7 @@ export async function handler(event) {
     if (!fid)
       return {
         statusCode: 400,
-        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "Missing fid" }),
       };
 
@@ -139,13 +139,13 @@ export async function handler(event) {
     if (!jsToken)
       return {
         statusCode: 500,
-        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "jsToken not found" }),
       };
     if (!templateData.bdstoken)
       return {
         statusCode: 500,
-        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "bdstoken not found" }),
       };
 
@@ -167,7 +167,7 @@ export async function handler(event) {
     if (!file)
       return {
         statusCode: 404,
-        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "File not found" }),
       };
 
@@ -212,7 +212,7 @@ export async function handler(event) {
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
       body: JSON.stringify({
         error: err?.name === "AbortError" ? "Timeout" : err?.message,
       }),

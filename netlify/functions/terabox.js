@@ -53,7 +53,6 @@ async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = M
   let currentUrl = url;
 
   for (let i = 0; i < maxRedirects; i++) {
-    console.log(currentUrl);
     const hdrs = { ...headers };
     if (cookieStore) hdrs["Cookie"] = cookieStore;
 
@@ -89,7 +88,7 @@ export async function handler(event) {
     if (!shareUrl)
       return {
         statusCode: 400,
-        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "Missing data" }),
       };
 
@@ -133,7 +132,7 @@ export async function handler(event) {
     if (!jsToken)
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify({ error: "jsToken not found" }),
       };
 
@@ -145,18 +144,18 @@ export async function handler(event) {
     if (!surl)
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify({ error: "surl not found" }),
       };
 
     // Step 2：List API
     const apiUrl =
-      `http://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
+      `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
       `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
     const apiRes = await fetchFollowCookies(apiUrl, {
       ...headers,
-      Referer: "http://www.1024tera.com/",
+      Referer: "http://www.terabox.app/",
       "X-Requested-With": "XMLHttpRequest",
     });
 
@@ -165,7 +164,7 @@ export async function handler(event) {
     if (!file?.dlink)
       return {
         statusCode: 404,
-        "Content-Type": "application/json; charset=UTF-8",
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify({ error: "File not found" }),
       };
 
