@@ -57,7 +57,6 @@ async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = M
   let currentUrl = url;
 
   for (let i = 0; i < maxRedirects; i++) {
-    console.log(currentUrl);
     const hdrs = { ...headers };
     if (cookieStore) hdrs["Cookie"] = cookieStore;
 
@@ -132,7 +131,7 @@ export async function handler(event) {
 
     let pageRes;
     // Step 1: Get jsToken and bdstoken
-    pageRes = await fetchFollowCookies("http://www.terabox.app/main", headers);
+    pageRes = await fetchFollowCookies("http://www.terabox.app/chinese/main", headers);
     const html = await pageRes.text();
     const templateData = getTemplateData(html);
     const jsToken = getJsToken(templateData.jsToken);
@@ -163,6 +162,7 @@ export async function handler(event) {
       "&fidlist=[" + fid + "]&type=dlink&vip=2&sign=" + signature + "&timestamp=" +  info?.data?.timestamp +
       "&need_speed=0&bdstoken=" + templateData.bdstoken, headers);
     const download2 = await pageRes.json();
+    console.log(download2);
     const file = download2?.dlink[0]?.dlink;
     if (!file)
       return {
@@ -175,7 +175,7 @@ export async function handler(event) {
     headers.Range = "bytes=0-0";
     const headRes = await fetchFollowCookies(file, headers);
     const direct_link = headRes.url;
-    if (!headRes.ok)
+    if (!headRes.ok || headRes.url.indexOf("d.terabox") >= 0)
       return {
         statusCode: headRes.status,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
