@@ -175,7 +175,7 @@ export async function handler(event) {
     if (!headRes.ok)
       return {
         statusCode: headRes.status,
-        "Content-Type": "application/json; charset=UTF-8",
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify({ error: "Getting direct_link failed" }),
       };
 
