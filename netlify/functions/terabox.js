@@ -215,7 +215,7 @@ export async function handler(event) {
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
       body: JSON.stringify({
         error: err?.name === "AbortError" ? "Timeout" : err?.message,
       }),
