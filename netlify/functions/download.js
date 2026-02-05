@@ -93,7 +93,7 @@ export async function handler(event) {
     if (!fid)
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "Missing fid" }),
       };
 
@@ -103,6 +103,7 @@ export async function handler(event) {
         statusCode: 200,
         headers: {
           ...CORS_HEADERS,
+          "Content-Type": "application/json; charset=UTF-8",
           "Netlify-Functions-Cache": "HIT",
         },
         body: JSON.stringify(cached),
@@ -138,13 +139,13 @@ export async function handler(event) {
     if (!jsToken)
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "jsToken not found" }),
       };
     if (!templateData.bdstoken)
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "bdstoken not found" }),
       };
 
@@ -162,12 +163,11 @@ export async function handler(event) {
       "&fidlist=[" + fid + "]&type=dlink&vip=2&sign=" + signature + "&timestamp=" +  info?.data?.timestamp +
       "&need_speed=0&bdstoken=" + templateData.bdstoken, headers);
     const download2 = await pageRes.json();
-    console.log(download2);
     const file = download2?.dlink[0]?.dlink;
     if (!file)
       return {
         statusCode: 404,
-        headers: CORS_HEADERS,
+        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "File not found" }),
       };
 
@@ -202,6 +202,7 @@ export async function handler(event) {
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS,
+        "Content-Type": "application/json; charset=UTF-8",
         "Netlify-Functions-Cache": "MISS",
         "Netlify-CDN-Cache-Control": "public, durable, max-age=3600",
         "Netlify-Vary": "query",
@@ -211,7 +212,7 @@ export async function handler(event) {
   } catch (err) {
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
       body: JSON.stringify({
         error: err?.name === "AbortError" ? "Timeout" : err?.message,
       }),

@@ -89,7 +89,7 @@ export async function handler(event) {
     if (!shareUrl)
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
         body: JSON.stringify({ error: "Missing data" }),
       };
 
@@ -99,6 +99,7 @@ export async function handler(event) {
         statusCode: 200,
         headers: {
           ...CORS_HEADERS,
+          "Content-Type": "application/json; charset=UTF-8",
           "Netlify-Functions-Cache": "HIT",
         },
         body: JSON.stringify(cached),
@@ -164,7 +165,7 @@ export async function handler(event) {
     if (!file?.dlink)
       return {
         statusCode: 404,
-        headers: CORS_HEADERS,
+        "Content-Type": "application/json; charset=UTF-8",
         body: JSON.stringify({ error: "File not found" }),
       };
 
@@ -172,6 +173,12 @@ export async function handler(event) {
     headers.set("Range", "bytes=0-0");
     const headRes = await fetchFollowCookies(file.dlink, headers);
     const direct_link = headRes.url;
+    if (!headRes.ok)
+      return {
+        statusCode: headRes.status,
+        "Content-Type": "application/json; charset=UTF-8",
+        body: JSON.stringify({ error: "Getting direct_link failed" }),
+      };
 
     const result = {
       file_name: file.server_filename || "",
@@ -199,6 +206,7 @@ export async function handler(event) {
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS,
+        "Content-Type": "application/json; charset=UTF-8",
         "Netlify-Functions-Cache": "MISS",
         "Netlify-CDN-Cache-Control": "public, durable, max-age=28800",
         "Netlify-Vary": "query",
@@ -208,7 +216,7 @@ export async function handler(event) {
   } catch (err) {
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers: { CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8", },
       body: JSON.stringify({
         error: err?.name === "AbortError" ? "Timeout" : err?.message,
       }),
