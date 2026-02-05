@@ -175,6 +175,12 @@ export async function handler(event) {
     headers.Range = "bytes=0-0";
     const headRes = await fetchFollowCookies(file, headers);
     const direct_link = headRes.url;
+    if (!headRes.ok)
+      return {
+        statusCode: headRes.status,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify({ error: "Getting direct_link failed" }),
+      };
 
     const result = {
       fs_id: download2?.dlink[0]?.fs_id,
