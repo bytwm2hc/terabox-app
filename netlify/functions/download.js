@@ -5,9 +5,9 @@ const CORS_HEADERS = {
 const USER_AGENT =
   process.env.USER_AGENT ||
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
-const FETCH_TIMEOUT = 15000; // 15 secounds
-const MAX_REDIRECTS = 10;
-const CACHE_TTL = 28800 * 1000; // 8 hours
+const FETCH_TIMEOUT = 10000; // 10 secounds
+const MAX_REDIRECTS = 5;
+const CACHE_TTL = 3600 * 1000; // 1 hour
 
 const globalCache =
   globalThis.__TERABOX_CACHE__ ?? (globalThis.__TERABOX_CACHE__ = new Map());
@@ -36,16 +36,20 @@ async function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
   }
 }
 
-function extractJsToken(html) {
-  const m = html.match(/decodeURIComponent\(\s*`([^`]+)`\s*\)/);
-  if (!m) return null;
+function getTemplateData(text) {
+  const match = text.match(/var\s+templateData\s*=\s*(\{[\s\S]*?\});/);
+  if (!match) return null;
+
   try {
-    const decoded = decodeURIComponent(m[1]);
-    const token = decoded.match(/["']([A-F0-9]{32,})["']/);
-    return token?.[1] ?? null;
-  } catch {
+    return JSON.parse(match[1]);
+  } catch (e) {
     return null;
   }
+}
+
+function getJsToken(text) {
+  const m = text.match(/%22([\s\S]*?)%22/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = MAX_REDIRECTS) {
@@ -83,17 +87,17 @@ async function fetchFollowCookies(url, headers, method = "GET", maxRedirects = M
 export async function handler(event) {
   try {
     const params = event.queryStringParameters || {};
-    const shareUrl = params.data;
+    const fid = params.fid;
     const download = params.download;
 
-    if (!shareUrl)
+    if (!fid)
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ error: "Missing data" }),
+        body: JSON.stringify({ error: "Missing fid" }),
       };
 
-    const cached = getCache(shareUrl);
+    const cached = getCache(fid);
     if (cached && !download)
       return {
         statusCode: 200,
@@ -116,6 +120,7 @@ export async function handler(event) {
     const headers = {
       "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Referer": "https://www.terabox.app/main",
       "Sec-Fetch-Dest": "document",
       "Sec-Fetch-Mode": "navigate",
       "Upgrade-Insecure-Requests": "0",
@@ -124,63 +129,61 @@ export async function handler(event) {
     
     if (process.env.COOKIE) headers["Cookie"] = process.env.COOKIE;
 
-    // Step 1：抓 HTML
-    let pageRes = await fetchFollowCookies("http://www.terabox.app/chinese/main", headers);
+    let pageRes;
+    // Step 1: Get jsToken and bdstoken
+    pageRes = await fetchFollowCookies("http://www.terabox.app/main", headers);
     const html = await pageRes.text();
-
-    const jsToken = extractJsToken(html);
+    const templateData = getTemplateData(html);
+    const jsToken = getJsToken(templateData.jsToken);
     if (!jsToken)
       return {
         statusCode: 500,
         headers: CORS_HEADERS,
         body: JSON.stringify({ error: "jsToken not found" }),
       };
-
-    pageRes = await fetchFollowCookies(shareUrl, headers);
-    const pageURL = new URL(pageRes.url);
-    const surl =
-      pageURL.searchParams.get("surl") ||
-      pageURL.pathname.match(/^\/s\/([^/?]+)/)?.[1];
-    if (!surl)
+    if (!templateData.bdstoken)
       return {
         statusCode: 500,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ error: "surl not found" }),
+        body: JSON.stringify({ error: "bdstoken not found" }),
       };
 
-    // Step 2：List API
-    const apiUrl =
-      `http://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
-      `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
+    // Step 2: Get info
+    pageRes = await fetchFollowCookies("http://www.terabox.app/api/home/info?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=" +
+    jsToken, headers);
+    const info = await pageRes.json();
+    const src = info?.data?.sign2?.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    const s = new Function(`return ${src}`)(); // s(j, r)
+    const signature = btoa(s(info?.data?.sign3, info?.data?.sign1));
 
-    const apiRes = await fetchFollowCookies(apiUrl, {
-      ...headers,
-      Referer: "http://www.1024tera.com/",
-      "X-Requested-With": "XMLHttpRequest",
-    });
-
-    const json = await apiRes.json();
-    const file = json?.list?.[0];
-    if (!file?.dlink)
+    // Step 3: Get download
+    pageRes = await fetchFollowCookies(
+      "http://www.terabox.app/api/download?app_id=250528&web=1&channel=dubox&clienttype=0&jsToken=" + jsToken +
+      "&fidlist=[" + fid + "]&type=dlink&vip=2&sign=" + signature + "&timestamp=" +  info?.data?.timestamp +
+      "&need_speed=0&bdstoken=" + templateData.bdstoken, headers);
+    const download2 = await pageRes.json();
+    console.log(download2);
+    const file = download2?.dlink[0]?.dlink;
+    if (!file)
       return {
         statusCode: 404,
         headers: CORS_HEADERS,
         body: JSON.stringify({ error: "File not found" }),
       };
 
-    // Step 3：HEAD 確認 direct link
-    const headRes = await fetchFollowCookies(file.dlink, headers, "HEAD");
+    // Step 4: HEAD 確認 direct link
+    const headRes = await fetchFollowCookies(file, headers, "HEAD");
     const direct_link = headRes.url;
 
     const result = {
-      file_name: file.server_filename || "",
-      link: file.dlink,
+      fs_id: download2?.dlink[0]?.fs_id,
+      dlink: download2?.dlink[0]?.dlink,
       direct_link,
-      size: Number(file.size) || 0,
-      thumb: file.thumbs?.url3 || "",
+      filename: download2?.file_info?.filename || "",
+      size: download2?.file_info?.size || 0,
     };
 
-    setCache(shareUrl, result);
+    setCache(fid, result);
 
     // -------------------- download 支援 --------------------
     if (download)
@@ -189,7 +192,7 @@ export async function handler(event) {
         headers: { ...CORS_HEADERS,
           Location: direct_link,
           "Netlify-Functions-Cache": "MISS",
-          "Netlify-CDN-Cache-Control": "public, durable, max-age=28800",
+          "Netlify-CDN-Cache-Control": "public, durable, max-age=3600",
           "Netlify-Vary": "query",
         },
         body: "",
@@ -199,7 +202,7 @@ export async function handler(event) {
       statusCode: 200,
       headers: { ...CORS_HEADERS,
         "Netlify-Functions-Cache": "MISS",
-        "Netlify-CDN-Cache-Control": "public, durable, max-age=28800",
+        "Netlify-CDN-Cache-Control": "public, durable, max-age=3600",
         "Netlify-Vary": "query",
       },
       body: JSON.stringify(result),
