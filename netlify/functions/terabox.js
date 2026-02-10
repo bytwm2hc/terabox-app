@@ -113,19 +113,17 @@ export async function handler(event) {
         body: "",
       };
 
-    const headers = {
-      "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Upgrade-Insecure-Requests": "0",
-      "User-Agent": USER_AGENT,
-    };
+    let headers = {};
     
-    if (process.env.COOKIE) headers["Cookie"] = process.env.COOKIE;
+    if (process.env.COOKIE)
+      headers["Cookie"] = process.env.COOKIE;
+    if (process.env.USER_AGENT)
+      headers["User-Agent"] = process.env.USER_AGENT;
+    else
+      headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0";
 
     // Step 1：抓 HTML
-    let pageRes = await fetchFollowCookies("http://www.terabox.app/chinese/main", headers);
+    let pageRes = await fetchFollowCookies("https://www.1024tera.com/chinese/main", headers);
     const html = await pageRes.text();
 
     const jsToken = extractJsToken(html);
@@ -136,7 +134,7 @@ export async function handler(event) {
         body: JSON.stringify({ error: "jsToken not found" }),
       };
 
-    pageRes = await fetchFollowCookies(shareUrl, headers);
+    pageRes = await fetchFollowCookies(shareUrl, headers, "HEAD");
     const pageURL = new URL(pageRes.url);
     const surl =
       pageURL.searchParams.get("surl") ||
@@ -150,16 +148,17 @@ export async function handler(event) {
 
     // Step 2：List API
     const apiUrl =
-      `http://www.terabox.app/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
+      `http://www.1024tera.com/share/list?app_id=250528&web=1&channel=dubox&clienttype=0` +
       `&jsToken=${encodeURIComponent(jsToken)}&page=1&num=20&by=name&order=asc&site_referer=&shorturl=${surl}&root=1`;
 
     const apiRes = await fetchFollowCookies(apiUrl, {
       ...headers,
-      Referer: "http://www.terabox.app/",
+      "Referer": "http://www.1024tera.com/",
       "X-Requested-With": "XMLHttpRequest",
     });
 
     const json = await apiRes.json();
+    //console.log(json);
     const file = json?.list?.[0];
     if (!file?.dlink)
       return {
